@@ -1,0 +1,55 @@
+name: z_movie_maker
+description: "Z-Movie Maker (OpenAnimotica project) — An open-source, feature-complete video editor & movie maker built with Flutter."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # High Performance Video Playback (MPV / Direct3D11)
+  media_kit: ^1.1.10
+  media_kit_video: ^1.2.4
+  media_kit_libs_windows_video: ^1.0.8
+
+  # File & Window System
+  file_picker: ^8.0.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
+  window_manager: ^0.3.8
+  screen_retriever: ^0.1.9
+  desktop_drop: ^0.4.4
+
+  # Camera & Recording
+  camera: ^0.10.5+9
+  camera_windows: ^0.2.1+8
+  record: ^5.1.2
+  audioplayers: ^6.0.0
+
+  # Networking & Media
+  http: ^1.2.1
+  cached_network_image: ^3.3.1
+
+  # UI, Fonts & Color Utilities
+  google_fonts: ^6.2.1
+  flutter_colorpicker: ^1.1.0
+  uuid: ^4.4.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/audio/
