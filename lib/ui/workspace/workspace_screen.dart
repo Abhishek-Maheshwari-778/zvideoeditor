@@ -18,6 +18,10 @@ import '../drawers/transition_drawer.dart';
 import '../drawers/giphy_picker_dialog.dart';
 import '../drawers/effects_adjust_dialog.dart';
 import '../drawers/export_dialog.dart';
+import '../drawers/overlay_manager_drawer.dart';
+import '../drawers/audio_mixer_drawer.dart';
+import '../drawers/text_editor_dialog.dart';
+import '../drawers/chroma_key_dialog.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -27,6 +31,9 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
+  bool isLayerDrawerOpen = false;
+  bool isAudioMixerOpen = false;
+
   Future<void> _addVideoPhotoClip() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.media,
@@ -63,6 +70,15 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     );
   }
 
+  void _openTextDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => TextEditorDialog(
+        onSave: (overlay) => ref.read(projectProvider.notifier).addOverlay(overlay),
+      ),
+    );
+  }
+
   void _openGiphyDialog() {
     showDialog(
       context: context,
@@ -71,14 +87,62 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           final overlay = OverlayLayerModel(
             id: 'giphy-${const Uuid().v4().substring(0, 8)}',
             type: giphy.isSticker ? OverlayType.sticker : OverlayType.gif,
+            name: giphy.title,
             content: giphy.originalUrl,
             startTime: ref.read(playbackProvider).currentTime,
-            duration: 3.0,
+            duration: 4.0,
           );
           ref.read(projectProvider.notifier).addOverlay(overlay);
         },
       ),
     );
+  }
+
+  Future<void> _openPiPVideoDialog() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.video);
+    if (result != null && result.files.single.path != null) {
+      final file = result.files.single;
+      final overlay = OverlayLayerModel(
+        id: 'pip-${const Uuid().v4().substring(0, 8)}',
+        name: 'PiP: ${file.name}',
+        type: OverlayType.pipVideo,
+        content: file.path!,
+        startTime: ref.read(playbackProvider).currentTime,
+        duration: 5.0,
+        scale: 0.6,
+        posX: 0.75,
+        posY: 0.75,
+        maskShape: PiPMaskShape.roundedRectangle,
+        cornerRadius: 16.0,
+        borderWidth: 2.0,
+        borderColorHex: '#FFFFFF',
+      );
+      ref.read(projectProvider.notifier).addOverlay(overlay);
+    }
+  }
+
+  void _openChromaKeyDialog() {
+    final playback = ref.read(playbackProvider);
+    final project = ref.read(projectProvider);
+    if (playback.selectedOverlayIndex >= 0 && playback.selectedOverlayIndex < project.overlays.length) {
+      final overlay = project.overlays[playback.selectedOverlayIndex];
+      showDialog(
+        context: context,
+        builder: (_) => ChromaKeyDialog(
+          initialConfig: overlay.chromaKey,
+          onApply: (config) {
+            ref.read(projectProvider.notifier).updateOverlay(
+                  playback.selectedOverlayIndex,
+                  overlay.copyWith(chromaKey: config),
+                );
+          },
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an overlay layer to apply Chroma Key.')),
+      );
+    }
   }
 
   void _openEffectsDialog() {
@@ -152,7 +216,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     if (playback.selectedClipIndex >= 0 && playback.selectedClipIndex < project.clips.length) {
       ref.read(projectProvider.notifier).splitClipAt(
             playback.selectedClipIndex,
-            2.0, // Split halfway
+            2.0,
           );
     }
   }
@@ -185,9 +249,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       ),
       body: Row(
         children: [
-          // Mini Sidebar (Left Menu & Save Icon from Screenshot 4)
+          // Mini Sidebar (Left Menu, Save, Overlays, Mixer)
           Container(
-            width: 44,
+            width: 46,
             color: const Color(0xFF252526),
             child: Column(
               children: [
@@ -202,16 +266,38 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   onPressed: () => ProjectStorageService.saveProjectToFile(project),
                   tooltip: 'Save Project',
                 ),
+                const Divider(color: Colors.white24, height: 16),
+                IconButton(
+                  icon: Icon(Icons.layers_rounded, color: isLayerDrawerOpen ? AppColors.primary : Colors.white70, size: 20),
+                  onPressed: () => setState(() {
+                    isLayerDrawerOpen = !isLayerDrawerOpen;
+                    if (isLayerDrawerOpen) isAudioMixerOpen = false;
+                  }),
+                  tooltip: 'Overlays & Layers',
+                ),
+                IconButton(
+                  icon: Icon(Icons.music_note_rounded, color: isAudioMixerOpen ? AppColors.musicColor : Colors.white70, size: 20),
+                  onPressed: () => setState(() {
+                    isAudioMixerOpen = !isAudioMixerOpen;
+                    if (isAudioMixerOpen) isLayerDrawerOpen = false;
+                  }),
+                  tooltip: 'Audio Mixer',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.auto_fix_high_rounded, color: Colors.white70, size: 20),
+                  onPressed: _openChromaKeyDialog,
+                  tooltip: 'Chroma Key (Green Screen)',
+                ),
                 const Spacer(),
               ],
             ),
           ),
 
-          // Main Workspace Layout
+          // Main Workspace
           Expanded(
             child: Column(
               children: [
-                // Top Pro Banner & Feedback Heart (Screenshot 4 & 5)
+                // Top Banner
                 Container(
                   color: const Color(0xFF181818),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -236,7 +322,23 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                         ),
                       ),
                       const Spacer(),
-                      // Feedback Heart Icon
+                      // Top Quick Overlays Buttons
+                      TextButton.icon(
+                        icon: const Icon(Icons.text_fields, color: Colors.white70, size: 16),
+                        label: const Text('+ Text', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                        onPressed: _openTextDialog,
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.grid_view_rounded, color: Colors.white70, size: 16),
+                        label: const Text('+ GIPHY', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                        onPressed: _openGiphyDialog,
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.picture_in_picture_rounded, color: Colors.white70, size: 16),
+                        label: const Text('+ PiP', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                        onPressed: _openPiPVideoDialog,
+                      ),
+                      const SizedBox(width: 8),
                       Container(
                         width: 28,
                         height: 28,
@@ -250,17 +352,31 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   ),
                 ),
 
-                // Canvas Preview Area
+                // Center Content: Viewport with optional side drawers
                 Expanded(
-                  child: CanvasViewport(
-                    onAddVideo: _addVideoPhotoClip,
-                    onAddColorClip: _openColorClipDialog,
-                    onAddGiphy: _openGiphyDialog,
-                    onAddCamera: () {},
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CanvasViewport(
+                          onAddVideo: _addVideoPhotoClip,
+                          onAddColorClip: _openColorClipDialog,
+                          onAddGiphy: _openGiphyDialog,
+                          onAddCamera: () {},
+                        ),
+                      ),
+                      if (isLayerDrawerOpen)
+                        OverlayManagerDrawer(
+                          onAddText: _openTextDialog,
+                          onAddSticker: _openGiphyDialog,
+                          onAddPiP: _openPiPVideoDialog,
+                        ),
+                      if (isAudioMixerOpen)
+                        const AudioMixerDrawer(),
+                    ],
                   ),
                 ),
 
-                // Transition Drawer (When open matching Screenshot 6)
+                // Transition Drawer (Screenshot 6)
                 if (playback.isTransitionDrawerOpen && playback.activeTransitionClipIndex >= 0)
                   TransitionDrawer(
                     currentTransition: project.clips[playback.activeTransitionClipIndex].transitionAfter,
@@ -270,21 +386,20 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     onClose: () => ref.read(playbackProvider.notifier).closeTransitionDrawer(),
                   ),
 
-                // Timeline Transport & Scrubbing Bar (Screenshot 4 & 5)
+                // Timeline Transport & Scrubbing Bar
                 const TimelineScrubBar(),
 
-                // Multi-Clip Storyboard Tray (Screenshot 5)
+                // Multi-Clip Storyboard Tray
                 if (project.clips.isNotEmpty)
                   StoryboardWidget(onAddClip: _openColorClipDialog),
 
-                // Bottom Action Bar (Screenshot 4 & 5)
+                // Bottom Action Bar
                 Container(
                   height: 56,
                   color: const Color(0xFFF7F7F7),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      // Orange "Go back" Button on bottom left (Screenshot 4 & 5)
                       InkWell(
                         onTap: () => Navigator.of(context).pop(),
                         child: Container(
@@ -302,7 +417,6 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                       ),
                       const SizedBox(width: 24),
 
-                      // Tool Actions (Split, Duration, Color, Duplicate, Delete)
                       _BottomActionItem(
                         icon: Icons.content_cut_rounded,
                         label: 'Split',
@@ -339,7 +453,6 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
                       const Spacer(),
 
-                      // Export Button
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,

@@ -1,4 +1,3 @@
-import 'dart:io';
 import '../../models/project_model.dart';
 import '../../models/clip_model.dart';
 import '../../models/transition_model.dart';
@@ -13,7 +12,6 @@ class FilterGraphBuilder {
   }) {
     final List<String> args = ['-y'];
     final List<String> filterComplex = [];
-    final List<String> inputFiles = [];
     final int outW = project.exportWidth;
     final int outH = project.exportHeight;
     final int fps = project.fps;
@@ -22,7 +20,9 @@ class FilterGraphBuilder {
       throw Exception('Cannot export an empty timeline without clips.');
     }
 
-    // Step 1: Add inputs for all clips
+    int inputIndex = 0;
+
+    // Step 1: Add inputs for all video/color clips
     for (int i = 0; i < project.clips.length; i++) {
       final clip = project.clips[i];
       if (clip.type == ClipType.solidColor) {
@@ -36,7 +36,6 @@ class FilterGraphBuilder {
           'color=c=$color:s=${outW}x$outH:r=$fps',
         ]);
       } else if (clip.type == ClipType.gradient) {
-        // Gradient synthetic input via lavfi or fallback color
         final c1 = (clip.gradientColorsHex != null && clip.gradientColorsHex!.isNotEmpty)
             ? clip.gradientColorsHex![0].replaceAll('#', '0x')
             : '0x8A2387';
@@ -59,27 +58,42 @@ class FilterGraphBuilder {
         }
         args.addAll(['-i', clip.filePath ?? '']);
       }
-      inputFiles.add('[$i:v]');
+      inputIndex++;
     }
 
-    // Step 2: Scale, Pad, Frame-rate, and Color filter normalization per clip
+    // Step 2: Add inputs for custom background audio tracks
+    final List<int> audioInputIndices = [];
+    for (final track in project.audioTracks) {
+      args.addAll(['-i', track.filePath]);
+      audioInputIndices.add(inputIndex);
+      inputIndex++;
+    }
+
+    // Step 3: Add inputs for PiP video overlays
+    final List<int> pipInputIndices = [];
+    for (final overlay in project.overlays) {
+      if (overlay.type == OverlayType.pipVideo && overlay.content.isNotEmpty) {
+        args.addAll(['-i', overlay.content]);
+        pipInputIndices.add(inputIndex);
+        inputIndex++;
+      }
+    }
+
+    // Step 4: Scale, Pad, Frame-rate, and Color filter normalization per clip
     for (int i = 0; i < project.clips.length; i++) {
       final clip = project.clips[i];
       final List<String> vf = [];
 
-      // Aspect ratio scale & center pad
       vf.add('scale=$outW:$outH:force_original_aspect_ratio=decrease');
       vf.add('pad=$outW:$outH:(ow-iw)/2:(oh-ih)/2:color=black');
       vf.add('setsar=1');
       vf.add('fps=$fps');
 
-      // Speed adjustment
       if (clip.speed != 1.0) {
         final pts = (1.0 / clip.speed).toStringAsFixed(4);
         vf.add('setpts=$pts*PTS');
       }
 
-      // Color Adjustments (Brightness, Contrast, Saturation)
       final b = clip.colorAdjustments.brightness;
       final c = clip.colorAdjustments.contrast;
       final s = clip.colorAdjustments.saturation;
@@ -87,7 +101,6 @@ class FilterGraphBuilder {
         vf.add('eq=brightness=${b.toStringAsFixed(2)}:contrast=${c.toStringAsFixed(2)}:saturation=${s.toStringAsFixed(2)}');
       }
 
-      // Reverse
       if (clip.isReversed) {
         vf.add('reverse');
       }
@@ -95,7 +108,7 @@ class FilterGraphBuilder {
       filterComplex.add('[$i:v]${vf.join(',')}[v$i]');
     }
 
-    // Step 3: Chain Transitions via xfade
+    // Step 5: Chain Transitions via xfade
     String lastVideoLabel = '[v0]';
     double currentOffset = project.clips[0].duration;
 
@@ -121,11 +134,14 @@ class FilterGraphBuilder {
       }
     }
 
-    // Step 4: Overlays (Text, Stickers, Watermark)
+    // Step 6: Overlays (Text, Stickers, PiP, Chroma Key)
     String finalVideoOutput = lastVideoLabel;
     int overlayIdx = 0;
+    int pipCounter = 0;
 
     for (final overlay in project.overlays) {
+      if (!overlay.isVisible) continue;
+
       if (overlay.type == OverlayType.text) {
         final sanitizedText = overlay.content.replaceAll("'", "\\'").replaceAll(":", "\\:");
         final color = overlay.fontColorHex.replaceAll('#', '0x');
@@ -133,12 +149,40 @@ class FilterGraphBuilder {
         final yPos = '(h-th)*${overlay.posY.toStringAsFixed(2)}';
         final enableCond = "between(t,${overlay.startTime.toStringAsFixed(2)},${(overlay.startTime + overlay.duration).toStringAsFixed(2)})";
 
-        final drawTextFilter =
+        String drawTextFilter =
             "drawtext=text='$sanitizedText':fontcolor=$color:fontsize=${overlay.fontSize.toInt()}:x=$xPos:y=$yPos:enable='$enableCond'";
+        if (overlay.backgroundColorHex != null) {
+          final bgCol = overlay.backgroundColorHex!.replaceAll('#', '0x');
+          drawTextFilter += ":box=1:boxcolor=$bgCol@0.8:boxborderw=6";
+        }
+        if (overlay.hasShadow) {
+          drawTextFilter += ":shadowcolor=0x000000@0.8:shadowx=2:shadowy=2";
+        }
+
         final nextLabel = '[v_txt_$overlayIdx]';
         filterComplex.add('$finalVideoOutput$drawTextFilter$nextLabel');
         finalVideoOutput = nextLabel;
         overlayIdx++;
+      } else if (overlay.type == OverlayType.pipVideo && pipCounter < pipInputIndices.length) {
+        final pipInIdx = pipInputIndices[pipCounter];
+        final pipW = (outW * overlay.scale).toInt();
+        final pipH = (outH * overlay.scale).toInt();
+        final pipX = '(W-w)*${overlay.posX.toStringAsFixed(2)}';
+        final pipY = '(H-h)*${overlay.posY.toStringAsFixed(2)}';
+        final enableCond = "between(t,${overlay.startTime.toStringAsFixed(2)},${(overlay.startTime + overlay.duration).toStringAsFixed(2)})";
+
+        String pipFilter = "[$pipInIdx:v]scale=$pipW:$pipH";
+        if (overlay.chromaKey.enabled) {
+          final keyCol = overlay.chromaKey.targetColorHex.replaceAll('#', '0x');
+          pipFilter += ",colorkey=$keyCol:${overlay.chromaKey.similarity}:${overlay.chromaKey.smoothness}";
+        }
+        pipFilter += "[pip_scaled_$pipCounter]";
+        filterComplex.add(pipFilter);
+
+        final nextLabel = '[v_pip_$pipCounter]';
+        filterComplex.add("$finalVideoOutput[pip_scaled_$pipCounter]overlay=x=$pipX:y=$pipY:enable='$enableCond'$nextLabel");
+        finalVideoOutput = nextLabel;
+        pipCounter++;
       }
     }
 
@@ -152,9 +196,28 @@ class FilterGraphBuilder {
       finalVideoOutput = nextLabel;
     }
 
-    // Step 5: Assemble Final Arguments
+    // Step 7: Audio Multi-Track Mixing
+    String? finalAudioOutput;
+    if (audioInputIndices.isNotEmpty) {
+      final List<String> audioLabels = [];
+      for (int a = 0; a < audioInputIndices.length; a++) {
+        final inIdx = audioInputIndices[a];
+        final track = project.audioTracks[a];
+        final vol = track.isMuted ? 0.0 : track.volume;
+        final aLabel = '[a_mix_$a]';
+        filterComplex.add('[$inIdx:a]volume=${vol.toStringAsFixed(2)}$aLabel');
+        audioLabels.add(aLabel);
+      }
+      finalAudioOutput = '[a_final_out]';
+      filterComplex.add('${audioLabels.join('')}amix=inputs=${audioLabels.length}:duration=first$finalAudioOutput');
+    }
+
+    // Step 8: Assemble Final Arguments
     args.addAll(['-filter_complex', filterComplex.join('; ')]);
     args.addAll(['-map', finalVideoOutput]);
+    if (finalAudioOutput != null) {
+      args.addAll(['-map', finalAudioOutput, '-c:a', 'aac', '-b:a', '192k']);
+    }
 
     // Video Codec & Quality Encoding Flags
     args.addAll([

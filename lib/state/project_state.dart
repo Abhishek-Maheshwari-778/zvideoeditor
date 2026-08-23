@@ -63,6 +63,18 @@ class ProjectNotifier extends StateNotifier<ProjectModel> {
     );
   }
 
+  void toggleWatermark(bool enabled) {
+    _pushUndo();
+    state = state.copyWith(hasWatermark: enabled);
+  }
+
+  void updateWatermarkText(String text) {
+    _pushUndo();
+    state = state.copyWith(watermarkText: text);
+  }
+
+  // --- Clip Operations ---
+
   void addClip(ClipModel clip) {
     _pushUndo();
     final updatedClips = List<ClipModel>.from(state.clips)..add(clip);
@@ -99,13 +111,12 @@ class ProjectNotifier extends StateNotifier<ProjectModel> {
     }
   }
 
-  /// Splits a clip into two distinct clips at the given split point (in seconds relative to clip start)
   void splitClipAt(int index, double splitOffsetSeconds) {
     if (index < 0 || index >= state.clips.length) return;
     final clip = state.clips[index];
 
     if (splitOffsetSeconds <= 0.2 || splitOffsetSeconds >= clip.duration - 0.2) {
-      return; // Too close to boundaries
+      return;
     }
 
     _pushUndo();
@@ -139,10 +150,38 @@ class ProjectNotifier extends StateNotifier<ProjectModel> {
     }
   }
 
+  // --- Overlay Layer Operations ---
+
   void addOverlay(OverlayLayerModel overlay) {
     _pushUndo();
     final updatedOverlays = List<OverlayLayerModel>.from(state.overlays)..add(overlay);
     state = state.copyWith(overlays: updatedOverlays);
+  }
+
+  void updateOverlay(int index, OverlayLayerModel updated) {
+    if (index >= 0 && index < state.overlays.length) {
+      _pushUndo();
+      final updatedOverlays = List<OverlayLayerModel>.from(state.overlays);
+      updatedOverlays[index] = updated;
+      state = state.copyWith(overlays: updatedOverlays);
+    }
+  }
+
+  void updateOverlayTransform(String overlayId, {double? posX, double? posY, double? scale, double? rotation, double? opacity}) {
+    final index = state.overlays.indexWhere((o) => o.id == overlayId);
+    if (index != -1) {
+      final old = state.overlays[index];
+      final updated = old.copyWith(
+        posX: posX ?? old.posX,
+        posY: posY ?? old.posY,
+        scale: scale ?? old.scale,
+        rotation: rotation ?? old.rotation,
+        opacity: opacity ?? old.opacity,
+      );
+      final updatedOverlays = List<OverlayLayerModel>.from(state.overlays);
+      updatedOverlays[index] = updated;
+      state = state.copyWith(overlays: updatedOverlays);
+    }
   }
 
   void removeOverlayAt(int index) {
@@ -150,6 +189,52 @@ class ProjectNotifier extends StateNotifier<ProjectModel> {
       _pushUndo();
       final updatedOverlays = List<OverlayLayerModel>.from(state.overlays)..removeAt(index);
       state = state.copyWith(overlays: updatedOverlays);
+    }
+  }
+
+  void toggleOverlayVisibility(int index) {
+    if (index >= 0 && index < state.overlays.length) {
+      _pushUndo();
+      final old = state.overlays[index];
+      final updatedOverlays = List<OverlayLayerModel>.from(state.overlays);
+      updatedOverlays[index] = old.copyWith(isVisible: !old.isVisible);
+      state = state.copyWith(overlays: updatedOverlays);
+    }
+  }
+
+  void reorderOverlays(int oldIndex, int newIndex) {
+    _pushUndo();
+    final list = List<OverlayLayerModel>.from(state.overlays);
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+    state = state.copyWith(overlays: list);
+  }
+
+  // --- Audio Track Operations ---
+
+  void addAudioTrack(AudioTrackModel track) {
+    _pushUndo();
+    final updatedTracks = List<AudioTrackModel>.from(state.audioTracks)..add(track);
+    state = state.copyWith(audioTracks: updatedTracks);
+  }
+
+  void updateAudioTrack(int index, AudioTrackModel track) {
+    if (index >= 0 && index < state.audioTracks.length) {
+      _pushUndo();
+      final list = List<AudioTrackModel>.from(state.audioTracks);
+      list[index] = track;
+      state = state.copyWith(audioTracks: list);
+    }
+  }
+
+  void removeAudioTrackAt(int index) {
+    if (index >= 0 && index < state.audioTracks.length) {
+      _pushUndo();
+      final list = List<AudioTrackModel>.from(state.audioTracks)..removeAt(index);
+      state = state.copyWith(audioTracks: list);
     }
   }
 }
