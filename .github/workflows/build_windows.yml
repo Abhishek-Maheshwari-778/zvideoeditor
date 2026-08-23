@@ -15,6 +15,9 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
+      - name: Set up MSVC Developer Command Prompt (Visual Studio 2022)
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -44,6 +47,8 @@ jobs:
 
       - name: Build Windows Desktop Release Executable
         run: flutter build windows --release
+        env:
+          CMAKE_GENERATOR: "Visual Studio 17 2022"
 
       - name: Bundle FFmpeg into Windows Release Directory
         shell: pwsh

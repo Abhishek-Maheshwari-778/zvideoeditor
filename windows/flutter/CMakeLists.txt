@@ -1,4 +1,3 @@
-# Flutter wrapper CMakeLists.txt
 cmake_minimum_required(VERSION 3.14)
 
 set(EPHEMERAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ephemeral")
@@ -62,3 +61,10 @@ target_link_libraries(flutter_wrapper_app PUBLIC flutter_wrapper_core)
 # === Assembly ===
 add_library(flutter_assemble INTERFACE)
 target_link_libraries(flutter_assemble INTERFACE flutter_wrapper_app)
+
+# Use FLUTTER_TARGET_PLATFORM if specified
+if(DEFINED FLUTTER_TARGET_PLATFORM)
+  set_target_properties(flutter_assemble PROPERTIES
+    FLUTTER_TARGET_PLATFORM "${FLUTTER_TARGET_PLATFORM}"
+  )
+endif()
