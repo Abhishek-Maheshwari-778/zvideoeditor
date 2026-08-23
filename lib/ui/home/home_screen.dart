@@ -83,70 +83,76 @@ class HomeScreen extends ConsumerWidget {
           Container(
             width: 70,
             color: const Color(0xFF2B2B2B),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                IconButton(
-                  icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
-                  onPressed: () {},
-                  tooltip: 'Main Menu',
-                ),
-                const SizedBox(height: 12),
-                IconButton(
-                  icon: const Icon(Icons.storefront_rounded, color: Color(0xFF00A2ED), size: 22),
-                  onPressed: () => _openAssetStore(context, ref),
-                  tooltip: 'Free Asset Store (Music, SFX, Stickers)',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.memory_rounded, color: Color(0xFF00C853), size: 22),
-                  onPressed: () => _openHardwareSettings(context),
-                  tooltip: 'Hardware Acceleration & 4GB RAM Settings',
-                ),
-                const Spacer(),
-                // Social Links
-                _SocialIcon(icon: Icons.facebook, tooltip: 'Facebook'),
-                _SocialIcon(icon: Icons.camera_alt_outlined, tooltip: 'Instagram'),
-                _SocialIcon(icon: Icons.flutter_dash, tooltip: 'Twitter / X'),
-                _SocialIcon(icon: Icons.play_circle_outline, tooltip: 'YouTube'),
-                _SocialIcon(icon: Icons.rss_feed_rounded, tooltip: 'Updates', badgeText: 'v2'),
-                const SizedBox(height: 12),
-                RotatedBox(
-                  quarterTurns: 3,
-                  child: Text(
-                    'FOLLOW US',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  IconButton(
+                    icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+                    onPressed: () {},
+                    tooltip: 'Main Menu',
+                  ),
+                  const SizedBox(height: 12),
+                  IconButton(
+                    icon: const Icon(Icons.storefront_rounded, color: Color(0xFF00A2ED), size: 22),
+                    onPressed: () => _openAssetStore(context, ref),
+                    tooltip: 'Free Asset Store (Music, SFX, Stickers)',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.memory_rounded, color: Color(0xFF00C853), size: 22),
+                    onPressed: () => _openHardwareSettings(context),
+                    tooltip: 'Hardware Acceleration & 4GB RAM Settings',
+                  ),
+                  const SizedBox(height: 24),
+                  // Social Links
+                  _SocialIcon(icon: Icons.facebook, tooltip: 'Facebook'),
+                  _SocialIcon(icon: Icons.camera_alt_outlined, tooltip: 'Instagram'),
+                  _SocialIcon(icon: Icons.flutter_dash, tooltip: 'Twitter / X'),
+                  _SocialIcon(icon: Icons.play_circle_outline, tooltip: 'YouTube'),
+                  _SocialIcon(icon: Icons.rss_feed_rounded, tooltip: 'Updates', badgeText: 'v2'),
+                  const SizedBox(height: 12),
+                  RotatedBox(
+                    quarterTurns: 3,
+                    child: Text(
+                      'FOLLOW US',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 2,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'v 2.0.0',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.3),
-                    fontSize: 9,
+                  const SizedBox(height: 12),
+                  Text(
+                    'v 2.0.0',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.3),
+                      fontSize: 9,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
           ),
 
           // Main Content Area
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header Row with App Brand, Hardware Accelerator Badge & Asset Store
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 12,
                     children: [
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
                             width: 36,
@@ -178,16 +184,18 @@ class HomeScreen extends ConsumerWidget {
                               border: Border.all(color: const Color(0xFF00C853)),
                             ),
                             child: const Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.speed_rounded, color: Color(0xFF00C853), size: 12),
                                 SizedBox(width: 4),
-                                Text('CPU+GPU Hybrid (4GB Spec)', style: TextStyle(color: Color(0xFF00C853), fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text('CPU+GPU Hybrid', style: TextStyle(color: Color(0xFF00C853), fontSize: 10, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
                         ],
                       ),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
@@ -218,69 +226,69 @@ class HomeScreen extends ConsumerWidget {
                   const Text(
                     'Easy-to-use Video Editor & Movie Maker v2.0',
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 24,
                       fontWeight: FontWeight.w300,
                       color: Color(0xFF333333),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
                   // Main Action Row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
-                        width: 190,
+                        width: 180,
                         child: Column(
                           children: [
                             SizedBox(
                               width: double.infinity,
-                              height: 48,
+                              height: 46,
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 ),
-                                icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                                label: const Text('New project', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                                icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                                label: const Text('New project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
                                 onPressed: () => _createNewProject(context, ref),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,
-                              height: 48,
+                              height: 46,
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 ),
-                                icon: const Icon(Icons.folder_open_rounded, color: Colors.white, size: 20),
-                                label: const Text('Open a project', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                                icon: const Icon(Icons.folder_open_rounded, color: Colors.white, size: 18),
+                                label: const Text('Open a project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
                                 onPressed: () => _openProject(context, ref),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 36),
+                      const SizedBox(width: 24),
 
                       // 4 Primary Feature Cards
                       Expanded(
                         child: GridView.count(
                           crossAxisCount: 2,
-                          crossAxisSpacing: 24,
-                          mainAxisSpacing: 18,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 14,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 3.4,
+                          childAspectRatio: 3.2,
                           children: [
                             _FeatureTile(
                               icon: Icons.edit_note_rounded,
                               iconColor: AppColors.editVideoIcon,
                               bgColor: AppColors.editVideoBg,
                               title: 'Edit video',
-                              description: 'Multitrack timeline, adjust color, crop, motion, trim & more',
+                              description: 'Multitrack timeline, crop, motion & more',
                               onTap: () => _createNewProject(context, ref),
                             ),
                             _FeatureTile(
@@ -288,7 +296,7 @@ class HomeScreen extends ConsumerWidget {
                               iconColor: AppColors.slideshowIcon,
                               bgColor: AppColors.slideshowBg,
                               title: 'Slideshow',
-                              description: 'Create photo slideshows with 40+ transitions and free music',
+                              description: 'Photo slideshows with 40+ transitions',
                               onTap: () => _createNewProject(context, ref),
                             ),
                             _FeatureTile(
@@ -296,7 +304,7 @@ class HomeScreen extends ConsumerWidget {
                               iconColor: const Color(0xFFB000FF),
                               bgColor: const Color(0xFFF6E8FF),
                               title: 'Convert Video Format',
-                              description: 'Transcode between MP4, MKV, WebM, AVI, MOV & Animated GIF',
+                              description: 'Transcode between MP4, MKV, WebM & GIF',
                               onTap: () => QuickToolsDialogs.showPrepareDialog(context),
                             ),
                             _FeatureTile(
@@ -304,7 +312,7 @@ class HomeScreen extends ConsumerWidget {
                               iconColor: const Color(0xFFFF5252),
                               bgColor: const Color(0xFFFFEBEE),
                               title: 'Text to Speech (TTS)',
-                              description: 'Generate synthetic voiceover narration from text scripts',
+                              description: 'Generate synthetic voiceover narration',
                               onTap: () => _openTtsDialog(context, ref),
                             ),
                           ],
@@ -312,22 +320,22 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 28),
 
                   // Quick Tools Section Header (Matching Image 1)
                   const Text(
                     'Quick tools (Without watermark)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF666666)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF666666)),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
                   // 12 Quick Tools Grid (Matching Image 1)
                   GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 24,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 3.8,
+                      crossAxisSpacing: 18,
+                      mainAxisSpacing: 14,
+                      childAspectRatio: 3.6,
                     ),
                     itemCount: QuickToolItem.allTools.length,
                     shrinkWrap: true,
@@ -346,7 +354,7 @@ class HomeScreen extends ConsumerWidget {
                       );
                     },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -430,23 +438,23 @@ class _FeatureTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                Text(description, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(description, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -475,15 +483,15 @@ class _QuickToolTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: item.bgColor,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(item.icon, color: item.iconColor, size: 20),
+            child: Icon(item.icon, color: item.iconColor, size: 18),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,22 +499,29 @@ class _QuickToolTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(item.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Flexible(
+                      child: Text(
+                        item.title,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     if (item.isNew) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.badgeNew,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('NEW', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                        child: const Text('NEW', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(item.description, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(item.description, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
