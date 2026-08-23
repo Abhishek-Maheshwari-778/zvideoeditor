@@ -26,10 +26,6 @@ jobs:
         run: |
           flutter config --enable-windows-desktop
 
-      - name: Recreate Windows Desktop Platform Files
-        run: |
-          flutter create --platforms=windows --project-name z_movie_maker .
-
       - name: Install Project Dependencies
         run: flutter pub get
 
