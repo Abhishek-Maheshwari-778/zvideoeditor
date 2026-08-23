@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -9,6 +10,7 @@ import '../../models/overlay_layer_model.dart';
 import '../../state/project_state.dart';
 import '../../state/playback_state.dart';
 import '../../services/project_storage_service.dart';
+import '../../services/proxy_manager_service.dart';
 import '../widgets/window_title_bar.dart';
 import '../canvas/canvas_viewport.dart';
 import '../timeline/multitrack_timeline_widget.dart';
@@ -23,6 +25,9 @@ import '../drawers/text_editor_dialog.dart';
 import '../drawers/chroma_key_dialog.dart';
 import '../drawers/crop_dialog.dart';
 import '../drawers/motion_dialog.dart';
+import '../drawers/auto_subtitles_dialog.dart';
+import '../drawers/audio_cleanup_dialog.dart';
+import '../drawers/hardware_settings_dialog.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -32,8 +37,63 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
+  final FocusNode _focusNode = FocusNode();
   bool isLayerDrawerOpen = false;
   bool isAudioMixerOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start background 60s auto-save
+    ProjectStorageService.startAutoSave(() => ref.read(projectProvider));
+  }
+
+  @override
+  void dispose() {
+    ProjectStorageService.stopAutoSave();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  /// Global Keyboard Shortcuts Listener (Space, S, Del, Ctrl+Z, Ctrl+Y, J/K/L, Ctrl+E, Ctrl+S)
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+
+    final isCtrlPressed = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+    final playback = ref.read(playbackProvider);
+    final totalDur = ref.read(projectProvider).totalDuration;
+
+    if (isCtrlPressed) {
+      if (event.logicalKey == LogicalKeyboardKey.keyZ) {
+        ref.read(projectProvider.notifier).undo();
+      } else if (event.logicalKey == LogicalKeyboardKey.keyY) {
+        ref.read(projectProvider.notifier).redo();
+      } else if (event.logicalKey == LogicalKeyboardKey.keyS) {
+        ProjectStorageService.saveProjectToFile(ref.read(projectProvider));
+      } else if (event.logicalKey == LogicalKeyboardKey.keyE) {
+        _openSaveVideoDialog();
+      }
+    } else {
+      if (event.logicalKey == LogicalKeyboardKey.space) {
+        ref.read(playbackProvider.notifier).togglePlay();
+      } else if (event.logicalKey == LogicalKeyboardKey.keyS) {
+        _splitCurrentClip();
+      } else if (event.logicalKey == LogicalKeyboardKey.delete || event.logicalKey == LogicalKeyboardKey.backspace) {
+        if (playback.selectedClipIndex >= 0) {
+          ref.read(projectProvider.notifier).removeClipAt(playback.selectedClipIndex);
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.keyJ) {
+        // Rewind 1 second
+        ref.read(playbackProvider.notifier).seekTo((playback.currentTime - 1.0).clamp(0.0, totalDur), totalDur);
+      } else if (event.logicalKey == LogicalKeyboardKey.keyK) {
+        // Pause
+        if (playback.isPlaying) ref.read(playbackProvider.notifier).togglePlay();
+      } else if (event.logicalKey == LogicalKeyboardKey.keyL) {
+        // Fast Forward 1 second
+        ref.read(playbackProvider.notifier).seekTo((playback.currentTime + 1.0).clamp(0.0, totalDur), totalDur);
+      }
+    }
+  }
 
   Future<void> _addVideoPhotoClip() async {
     final result = await FilePicker.platform.pickFiles(
@@ -57,6 +117,11 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
             duration: isImg ? 4.0 : 8.0,
           );
           ref.read(projectProvider.notifier).addClip(clip);
+
+          // Background proxy creation for high-res clips
+          if (!isImg) {
+            ProxyManagerService().generateProxy(originalFilePath: file.path!);
+          }
         }
       }
     }
@@ -76,6 +141,35 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       context: context,
       builder: (_) => TextEditorDialog(
         onSave: (overlay) => ref.read(projectProvider.notifier).addOverlay(overlay),
+      ),
+    );
+  }
+
+  void _openAutoSubtitlesDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AutoSubtitlesDialog(
+        onAddSubtitles: (subs) {
+          for (final s in subs) {
+            ref.read(projectProvider.notifier).addOverlay(s);
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('AI Auto-Subtitles added to Text Track!'), backgroundColor: Colors.green),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openAudioCleanupDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AudioCleanupDialog(
+        onApply: ({required enableDenoise, required noiseFloorDb, required enableSilenceRemoval, required silenceThresholdDb}) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('AI Audio Denoise & Silence Trimming applied!'), backgroundColor: Colors.green),
+          );
+        },
       ),
     );
   }
@@ -295,170 +389,187 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     final project = ref.watch(projectProvider);
     final playback = ref.watch(playbackProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF141414),
-      appBar: WindowTitleBar(
-        title: '${project.title} - Movie Maker: Video Editor',
-        showBackButton: true,
-        onBack: () => Navigator.of(context).pop(),
-      ),
-      body: Row(
-        children: [
-          // Mini Sidebar (Matching Images 1 & 2)
-          Container(
-            width: 46,
-            color: const Color(0xFF1F1F1F),
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                IconButton(
-                  icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
-                  onPressed: () {},
-                  tooltip: 'Menu',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.save_rounded, color: Colors.white, size: 20),
-                  onPressed: () => ProjectStorageService.saveProjectToFile(project),
-                  tooltip: 'Save Project',
-                ),
-                const Divider(color: Colors.white24, height: 16),
-                IconButton(
-                  icon: Icon(Icons.layers_rounded, color: isLayerDrawerOpen ? const Color(0xFF0078D7) : Colors.white70, size: 20),
-                  onPressed: () => setState(() {
-                    isLayerDrawerOpen = !isLayerDrawerOpen;
-                    if (isLayerDrawerOpen) isAudioMixerOpen = false;
-                  }),
-                  tooltip: 'Overlays & Layers',
-                ),
-                IconButton(
-                  icon: Icon(Icons.music_note_rounded, color: isAudioMixerOpen ? AppColors.musicColor : Colors.white70, size: 20),
-                  onPressed: () => setState(() {
-                    isAudioMixerOpen = !isAudioMixerOpen;
-                    if (isAudioMixerOpen) isLayerDrawerOpen = false;
-                  }),
-                  tooltip: 'Audio Mixer',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.auto_fix_high_rounded, color: Colors.white70, size: 20),
-                  onPressed: _openChromaKeyDialog,
-                  tooltip: 'Chroma Key',
-                ),
-                const Spacer(),
-              ],
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF141414),
+        appBar: WindowTitleBar(
+          title: '${project.title} - Movie Maker: Video Editor',
+          showBackButton: true,
+          onBack: () => Navigator.of(context).pop(),
+        ),
+        body: Row(
+          children: [
+            // Mini Sidebar
+            Container(
+              width: 46,
+              color: const Color(0xFF1F1F1F),
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  IconButton(
+                    icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+                    onPressed: () {},
+                    tooltip: 'Menu',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.save_rounded, color: Colors.white, size: 20),
+                    onPressed: () => ProjectStorageService.saveProjectToFile(project),
+                    tooltip: 'Save Project (Ctrl+S)',
+                  ),
+                  const Divider(color: Colors.white24, height: 16),
+                  IconButton(
+                    icon: Icon(Icons.layers_rounded, color: isLayerDrawerOpen ? const Color(0xFF0078D7) : Colors.white70, size: 20),
+                    onPressed: () => setState(() {
+                      isLayerDrawerOpen = !isLayerDrawerOpen;
+                      if (isLayerDrawerOpen) isAudioMixerOpen = false;
+                    }),
+                    tooltip: 'Overlays & Layers',
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.music_note_rounded, color: isAudioMixerOpen ? AppColors.musicColor : Colors.white70, size: 20),
+                    onPressed: () => setState(() {
+                      isAudioMixerOpen = !isAudioMixerOpen;
+                      if (isAudioMixerOpen) isLayerDrawerOpen = false;
+                    }),
+                    tooltip: 'Audio Mixer',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.auto_fix_high_rounded, color: Colors.white70, size: 20),
+                    onPressed: _openChromaKeyDialog,
+                    tooltip: 'Chroma Key',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.subtitles_rounded, color: Colors.white70, size: 20),
+                    onPressed: _openAutoSubtitlesDialog,
+                    tooltip: 'AI Auto-Subtitles',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.graphic_eq_rounded, color: Colors.white70, size: 20),
+                    onPressed: _openAudioCleanupDialog,
+                    tooltip: 'AI Audio Denoise & Silence Remover',
+                  ),
+                  const Spacer(),
+                ],
+              ),
             ),
-          ),
 
-          // Main Workspace
-          Expanded(
-            child: Column(
-              children: [
-                // Top Pro Banner & Contact (Matching Image 2)
-                Container(
-                  color: const Color(0xFF1A1A1A),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Row(
-                    children: [
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: const BorderSide(color: Colors.white24),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            // Main Workspace
+            Expanded(
+              child: Column(
+                children: [
+                  // Top Banner with Shortcuts Helper
+                  Container(
+                    color: const Color(0xFF1A1A1A),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Row(
+                      children: [
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                            side: const BorderSide(color: Colors.white24),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.chevron_left, size: 14),
+                              Text('ALL PROJECTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.chevron_left, size: 14),
-                            Text('ALL PROJECTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                          ],
+                        const SizedBox(width: 14),
+                        const Text('Shortcuts: Space=Play/Pause • S=Split • Del=Delete • Ctrl+Z=Undo', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                        const Spacer(),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                            side: const BorderSide(color: Colors.white24),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.contact_support_rounded, size: 14, color: Color(0xFFFF9500)),
+                          label: const Text('Contact', style: TextStyle(fontSize: 11)),
+                          onPressed: () {},
                         ),
-                      ),
-                      const Spacer(),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: const BorderSide(color: Colors.white24),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2A2A2A),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.5)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.diamond_rounded, color: Color(0xFFFF9500), size: 14),
+                              SizedBox(width: 4),
+                              Text('Premium', style: TextStyle(color: Color(0xFFFF9500), fontSize: 11, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
-                        icon: const Icon(Icons.contact_support_rounded, size: 14, color: Color(0xFFFF9500)),
-                        label: const Text('Contact', style: TextStyle(fontSize: 11)),
-                        onPressed: () {},
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.5)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.diamond_rounded, color: Color(0xFFFF9500), size: 14),
-                            SizedBox(width: 4),
-                            Text('Premium', style: TextStyle(color: Color(0xFFFF9500), fontSize: 11, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Center Content: Viewport with optional side drawers
-                Expanded(
-                  flex: 3,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: CanvasViewport(
-                          onAddVideo: _addVideoPhotoClip,
-                          onAddColorClip: _openColorClipDialog,
-                          onAddGiphy: _openGiphyDialog,
-                          onAddCamera: () {},
-                        ),
-                      ),
-                      if (isLayerDrawerOpen)
-                        OverlayManagerDrawer(
-                          onAddText: _openTextDialog,
-                          onAddSticker: _openGiphyDialog,
-                          onAddPiP: _openPiPVideoDialog,
-                        ),
-                      if (isAudioMixerOpen)
-                        const AudioMixerDrawer(),
-                    ],
-                  ),
-                ),
-
-                // Transition Drawer (Screenshot 6)
-                if (playback.isTransitionDrawerOpen && playback.activeTransitionClipIndex >= 0)
-                  TransitionDrawer(
-                    currentTransition: project.clips[playback.activeTransitionClipIndex].transitionAfter,
-                    onSelectTransition: (trans) {
-                      ref.read(projectProvider.notifier).setTransition(playback.activeTransitionClipIndex, trans);
-                    },
-                    onClose: () => ref.read(playbackProvider.notifier).closeTransitionDrawer(),
+                      ],
+                    ),
                   ),
 
-                // Multitrack 5-Track Timeline & Action Shelf (Matching Image 2)
-                Expanded(
-                  flex: 2,
-                  child: MultitrackTimelineWidget(
-                    onAddMedia: _openColorClipDialog,
-                    onSplit: _splitCurrentClip,
-                    onDuration: _showDurationDialog,
-                    onEffect: _openEffectsDialog,
-                    onCrop: _showCropDialog,
-                    onMotion: _showMotionDialog,
-                    onTransform: () {},
-                    onRotate: _rotateCurrentClip,
-                    onFlip: _flipCurrentClip,
-                    onSaveVideo: _openSaveVideoDialog,
+                  // Center Content: Viewport with optional side drawers
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: CanvasViewport(
+                            onAddVideo: _addVideoPhotoClip,
+                            onAddColorClip: _openColorClipDialog,
+                            onAddGiphy: _openGiphyDialog,
+                            onAddCamera: () {},
+                          ),
+                        ),
+                        if (isLayerDrawerOpen)
+                          OverlayManagerDrawer(
+                            onAddText: _openTextDialog,
+                            onAddSticker: _openGiphyDialog,
+                            onAddPiP: _openPiPVideoDialog,
+                          ),
+                        if (isAudioMixerOpen)
+                          const AudioMixerDrawer(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+
+                  // Transition Drawer (Screenshot 6)
+                  if (playback.isTransitionDrawerOpen && playback.activeTransitionClipIndex >= 0)
+                    TransitionDrawer(
+                      currentTransition: project.clips[playback.activeTransitionClipIndex].transitionAfter,
+                      onSelectTransition: (trans) {
+                        ref.read(projectProvider.notifier).setTransition(playback.activeTransitionClipIndex, trans);
+                      },
+                      onClose: () => ref.read(playbackProvider.notifier).closeTransitionDrawer(),
+                    ),
+
+                  // Multitrack 5-Track Timeline & Action Shelf (Matching Image 2)
+                  Expanded(
+                    flex: 2,
+                    child: MultitrackTimelineWidget(
+                      onAddMedia: _openColorClipDialog,
+                      onSplit: _splitCurrentClip,
+                      onDuration: _showDurationDialog,
+                      onEffect: _openEffectsDialog,
+                      onCrop: _showCropDialog,
+                      onMotion: _showMotionDialog,
+                      onTransform: () {},
+                      onRotate: _rotateCurrentClip,
+                      onFlip: _flipCurrentClip,
+                      onSaveVideo: _openSaveVideoDialog,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

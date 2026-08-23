@@ -2,6 +2,7 @@ import '../../models/project_model.dart';
 import '../../models/clip_model.dart';
 import '../../models/transition_model.dart';
 import '../../models/overlay_layer_model.dart';
+import '../../services/hardware_acceleration_service.dart';
 
 class FilterGraphBuilder {
   /// Builds a complete FFmpeg command array for exporting the entire project timeline
@@ -9,6 +10,7 @@ class FilterGraphBuilder {
     required ProjectModel project,
     required String outputPath,
     String? ffmpegPath,
+    bool useBlurBackground = true, // Smart Canvas Auto-Reframing (16:9 -> 9:16 / 1:1)
   }) {
     final List<String> args = ['-y'];
     final List<String> filterComplex = [];
@@ -19,6 +21,9 @@ class FilterGraphBuilder {
     if (project.clips.isEmpty) {
       throw Exception('Cannot export an empty timeline without clips.');
     }
+
+    // Hardware Acceleration Decoding & Multithreading flags
+    args.addAll(HardwareAccelerationService().getFFmpegHardwareFlags());
 
     int inputIndex = 0;
 
@@ -79,33 +84,52 @@ class FilterGraphBuilder {
       }
     }
 
-    // Step 4: Scale, Pad, Frame-rate, and Color filter normalization per clip
+    // Step 4: Scale, Pad/Blur Re-framing, Frame-rate, and Color filter normalization per clip
     for (int i = 0; i < project.clips.length; i++) {
       final clip = project.clips[i];
-      final List<String> vf = [];
 
-      vf.add('scale=$outW:$outH:force_original_aspect_ratio=decrease');
-      vf.add('pad=$outW:$outH:(ow-iw)/2:(oh-ih)/2:color=black');
-      vf.add('setsar=1');
-      vf.add('fps=$fps');
+      if (clip.type == ClipType.solidColor || clip.type == ClipType.gradient) {
+        final List<String> vf = ['setsar=1', 'fps=$fps'];
+        filterComplex.add('[$i:v]${vf.join(',')}[v$i]');
+      } else if (useBlurBackground && (project.aspectRatio == CanvasAspectRatio.vertical9_16 || project.aspectRatio == CanvasAspectRatio.square1_1)) {
+        // Smart Canvas Auto-Reframing with Ambient Blurred Background Fill (16:9 -> 9:16 / 1:1)
+        final bgFilter = '[$i:v]scale=$outW:$outH:force_original_aspect_ratio=increase,crop=$outW:$outH,boxblur=25:25,fps=$fps[bg$i]';
+        final fgFilter = '[$i:v]scale=$outW:$outH:force_original_aspect_ratio=decrease,fps=$fps[fg$i]';
+        final mergeFilter = '[bg$i][fg$i]overlay=(W-w)/2:(H-h)/2[v$i]';
+        filterComplex.addAll([bgFilter, fgFilter, mergeFilter]);
+      } else {
+        final List<String> vf = [];
+        vf.add('scale=$outW:$outH:force_original_aspect_ratio=decrease');
+        vf.add('pad=$outW:$outH:(ow-iw)/2:(oh-ih)/2:color=black');
+        vf.add('setsar=1');
+        vf.add('fps=$fps');
 
-      if (clip.speed != 1.0) {
-        final pts = (1.0 / clip.speed).toStringAsFixed(4);
-        vf.add('setpts=$pts*PTS');
+        if (clip.isFlippedHorizontal) vf.add('hflip');
+        if (clip.isFlippedVertical) vf.add('vflip');
+        if (clip.rotation > 0) {
+          if (clip.rotation == 90) vf.add('transpose=1');
+          if (clip.rotation == 180) vf.add('transpose=2,transpose=2');
+          if (clip.rotation == 270) vf.add('transpose=2');
+        }
+
+        if (clip.speed != 1.0) {
+          final pts = (1.0 / clip.speed).toStringAsFixed(4);
+          vf.add('setpts=$pts*PTS');
+        }
+
+        final b = clip.colorAdjustments.brightness;
+        final c = clip.colorAdjustments.contrast;
+        final s = clip.colorAdjustments.saturation;
+        if (b != 0.0 || c != 1.0 || s != 1.0) {
+          vf.add('eq=brightness=${b.toStringAsFixed(2)}:contrast=${c.toStringAsFixed(2)}:saturation=${s.toStringAsFixed(2)}');
+        }
+
+        if (clip.isReversed) {
+          vf.add('reverse');
+        }
+
+        filterComplex.add('[$i:v]${vf.join(',')}[v$i]');
       }
-
-      final b = clip.colorAdjustments.brightness;
-      final c = clip.colorAdjustments.contrast;
-      final s = clip.colorAdjustments.saturation;
-      if (b != 0.0 || c != 1.0 || s != 1.0) {
-        vf.add('eq=brightness=${b.toStringAsFixed(2)}:contrast=${c.toStringAsFixed(2)}:saturation=${s.toStringAsFixed(2)}');
-      }
-
-      if (clip.isReversed) {
-        vf.add('reverse');
-      }
-
-      filterComplex.add('[$i:v]${vf.join(',')}[v$i]');
     }
 
     // Step 5: Chain Transitions via xfade
@@ -219,14 +243,13 @@ class FilterGraphBuilder {
       args.addAll(['-map', finalAudioOutput, '-c:a', 'aac', '-b:a', '192k']);
     }
 
-    // Video Codec & Quality Encoding Flags
+    // Video Codec selection from Hardware Acceleration Service (NVENC/QSV/AMF or libx264)
+    final encoderCodec = HardwareAccelerationService().getVideoEncoderCodec();
     args.addAll([
       '-c:v',
-      'libx264',
-      '-preset',
-      'medium',
-      '-crf',
-      '18',
+      encoderCodec,
+      if (encoderCodec == 'libx264') ...['-preset', 'medium', '-crf', '18'],
+      if (encoderCodec != 'libx264') ...['-b:v', '10M', '-maxrate', '12M'],
       '-pix_fmt',
       'yuv420p',
       '-r',

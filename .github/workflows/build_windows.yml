@@ -1,74 +1,80 @@
-name: Build & Release Windows Desktop App
+name: Build & Release Windows Desktop App & MSIX Package
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     tags:
-      - 'v*'
-  pull_request:
-    branches: [ main, master ]
+      - 'v*.*.*'
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Z-Movie Maker Windows Release
+  build-windows:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code Repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter SDK
+      - name: Set up Java JDK (for tooling)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x'
+          flutter-version: '3.19.6'
           channel: 'stable'
           cache: true
 
       - name: Enable Windows Desktop Support
         run: flutter config --enable-windows-desktop
 
-      - name: Download & Bundle FFmpeg Static Binaries
-        shell: powershell
+      - name: Install Project Dependencies
+        run: flutter pub get
+
+      - name: Run Unit & Integration Tests
+        run: flutter test
+
+      - name: Download Prebuilt FFmpeg Static Binaries (GPL-3.0)
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "assets/bin"
           Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile "ffmpeg.zip"
-          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_extracted"
-          Copy-Item -Path "ffmpeg_extracted/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe" -Destination "assets/bin/ffmpeg.exe"
-          Copy-Item -Path "ffmpeg_extracted/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "assets/bin/ffprobe.exe"
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_extracted" -Force
+          Copy-Item -Path "ffmpeg_extracted/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe" -Destination "assets/bin/ffmpeg.exe" -Force
+          Copy-Item -Path "ffmpeg_extracted/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "assets/bin/ffprobe.exe" -Force
           Remove-Item -Recurse -Force "ffmpeg.zip", "ffmpeg_extracted"
 
-      - name: Install Flutter Dependencies
-        run: flutter pub get
-
-      - name: Run Tests
-        run: flutter test
-
-      - name: Build Windows Desktop Release Executable
+      - name: Build Windows Desktop Release Bundle
         run: flutter build windows --release
 
-      - name: Copy FFmpeg Binaries into Output Bundle
-        shell: powershell
+      - name: Copy FFmpeg Binaries into Windows Release Directory
+        shell: pwsh
         run: |
-          Copy-Item -Path "assets/bin/*" -Destination "build/windows/x64/runner/Release/"
+          $releaseDir = "build/windows/x64/runner/Release"
+          New-Item -ItemType Directory -Force -Path "$releaseDir/assets/bin"
+          Copy-Item -Path "assets/bin/ffmpeg.exe" -Destination "$releaseDir/assets/bin/ffmpeg.exe" -Force
+          Copy-Item -Path "assets/bin/ffprobe.exe" -Destination "$releaseDir/assets/bin/ffprobe.exe" -Force
 
-      - name: Package Standalone Portable Zip
-        shell: powershell
+      - name: Package Portable ZIP Archive
+        shell: pwsh
         run: |
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "Z-Movie-Maker-Windows-Portable.zip"
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "build/Z-Movie-Maker-v2.0-Windows-x64-Portable.zip" -Force
 
-      - name: Upload Build Artifact
+      - name: Upload Build Artifact (Portable Zip)
         uses: actions/upload-artifact@v4
         with:
-          name: Z-Movie-Maker-Windows-Portable
-          path: Z-Movie-Maker-Windows-Portable.zip
+          name: Z-Movie-Maker-Windows-Portable-v2.0
+          path: build/Z-Movie-Maker-v2.0-Windows-x64-Portable.zip
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release on Tag Push
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Z-Movie-Maker-Windows-Portable.zip
-          draft: false
-          prerelease: false
+          files: |
+            build/Z-Movie-Maker-v2.0-Windows-x64-Portable.zip
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
