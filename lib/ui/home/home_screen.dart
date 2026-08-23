@@ -12,6 +12,9 @@ import '../../services/project_storage_service.dart';
 import '../widgets/window_title_bar.dart';
 import '../workspace/workspace_screen.dart';
 import '../quick_tools/quick_tools_dialogs.dart';
+import '../drawers/hardware_settings_dialog.dart';
+import '../drawers/asset_store_dialog.dart';
+import '../drawers/text_to_speech_dialog.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -38,42 +41,45 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _editVideoQuickStart(BuildContext context, WidgetRef ref) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      dialogTitle: 'Select Video to Edit',
+  void _openHardwareSettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => const HardwareSettingsDialog(),
     );
-    if (result != null && result.files.single.path != null && context.mounted) {
-      final filePath = result.files.single.path!;
-      final clip = ClipModel(
-        id: 'clip-${const Uuid().v4().substring(0, 8)}',
-        type: ClipType.video,
-        name: result.files.single.name,
-        filePath: filePath,
-        duration: 10.0,
-      );
+  }
 
-      final project = ProjectModel(
-        id: 'proj-${const Uuid().v4().substring(0, 8)}',
-        title: result.files.single.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-        clips: [clip],
-      );
+  void _openAssetStore(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (_) => AssetStoreDialog(
+        onAddAudio: (track) => ref.read(projectProvider.notifier).addAudioTrack(track),
+        onAddOverlay: (overlay) => ref.read(projectProvider.notifier).addOverlay(overlay),
+      ),
+    );
+  }
 
-      ref.read(projectProvider.notifier).loadProject(project);
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const WorkspaceScreen()),
-      );
-    }
+  void _openTtsDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (_) => TextToSpeechDialog(
+        onAddVoiceover: (track) {
+          ref.read(projectProvider.notifier).addAudioTrack(track);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('TTS Voiceover generated! Open project to listen.')),
+          );
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      appBar: const WindowTitleBar(title: 'Z-Movie Maker (OpenAnimotica)'),
+      appBar: const WindowTitleBar(title: 'Z-Movie Maker (OpenAnimotica) v2.0'),
       body: Row(
         children: [
-          // Left Sidebar Navigation & Social (Matching Screenshot 1)
+          // Left Sidebar Navigation & Settings
           Container(
             width: 70,
             color: const Color(0xFF2B2B2B),
@@ -85,13 +91,24 @@ class HomeScreen extends ConsumerWidget {
                   onPressed: () {},
                   tooltip: 'Main Menu',
                 ),
+                const SizedBox(height: 12),
+                IconButton(
+                  icon: const Icon(Icons.storefront_rounded, color: Color(0xFF00A2ED), size: 22),
+                  onPressed: () => _openAssetStore(context, ref),
+                  tooltip: 'Free Asset Store (Music, SFX, Stickers)',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.memory_rounded, color: Color(0xFF00C853), size: 22),
+                  onPressed: () => _openHardwareSettings(context),
+                  tooltip: 'Hardware Acceleration & 4GB RAM Settings',
+                ),
                 const Spacer(),
                 // Social Links
                 _SocialIcon(icon: Icons.facebook, tooltip: 'Facebook'),
                 _SocialIcon(icon: Icons.camera_alt_outlined, tooltip: 'Instagram'),
                 _SocialIcon(icon: Icons.flutter_dash, tooltip: 'Twitter / X'),
                 _SocialIcon(icon: Icons.play_circle_outline, tooltip: 'YouTube'),
-                _SocialIcon(icon: Icons.rss_feed_rounded, tooltip: 'Updates', badgeText: '1'),
+                _SocialIcon(icon: Icons.rss_feed_rounded, tooltip: 'Updates', badgeText: 'v2'),
                 const SizedBox(height: 12),
                 RotatedBox(
                   quarterTurns: 3,
@@ -107,7 +124,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'v 1.0.0',
+                  'v 2.0.0',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.3),
                     fontSize: 9,
@@ -125,7 +142,7 @@ class HomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header Row with App Brand and Feedback Button
+                  // Header Row with App Brand, Hardware Accelerator Badge & Asset Store
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -152,17 +169,46 @@ class HomeScreen extends ConsumerWidget {
                               color: AppColors.textPrimary,
                             ),
                           ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00C853).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFF00C853)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.speed_rounded, color: Color(0xFF00C853), size: 12),
+                                SizedBox(width: 4),
+                                Text('CPU+GPU Hybrid (4GB Spec)', style: TextStyle(color: Color(0xFF00C853), fontSize: 10, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                      // Feedback Heart Button (Screenshot 1 top right)
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+                      Row(
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0078D7),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.storefront_rounded, size: 16, color: Colors.white),
+                            label: const Text('Asset Store', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () => _openAssetStore(context, ref),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -170,7 +216,7 @@ class HomeScreen extends ConsumerWidget {
 
                   // Hero Subtitle
                   const Text(
-                    'Easy-to-use Video Editor & Movie Maker',
+                    'Easy-to-use Video Editor & Movie Maker v2.0',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w300,
@@ -179,16 +225,14 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 28),
 
-                  // Main Action Row (New Project & Open Project + 4 Core Cards)
+                  // Main Action Row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Left Buttons Column
                       SizedBox(
                         width: 190,
                         child: Column(
                           children: [
-                            // New Project Button (Orange Filled)
                             SizedBox(
                               width: double.infinity,
                               height: 48,
@@ -198,15 +242,11 @@ class HomeScreen extends ConsumerWidget {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 ),
                                 icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                                label: const Text(
-                                  'New project',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-                                ),
+                                label: const Text('New project', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
                                 onPressed: () => _createNewProject(context, ref),
                               ),
                             ),
                             const SizedBox(height: 14),
-                            // Open Project Button (Orange Outline / Card)
                             SizedBox(
                               width: double.infinity,
                               height: 48,
@@ -216,10 +256,7 @@ class HomeScreen extends ConsumerWidget {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 ),
                                 icon: const Icon(Icons.folder_open_rounded, color: Colors.white, size: 20),
-                                label: const Text(
-                                  'Open a project',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-                                ),
+                                label: const Text('Open a project', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
                                 onPressed: () => _openProject(context, ref),
                               ),
                             ),
@@ -228,7 +265,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 36),
 
-                      // 4 Primary Feature Cards (2x2 Grid)
+                      // 4 Primary Feature Cards
                       Expanded(
                         child: GridView.count(
                           crossAxisCount: 2,
@@ -243,32 +280,32 @@ class HomeScreen extends ConsumerWidget {
                               iconColor: AppColors.editVideoIcon,
                               bgColor: AppColors.editVideoBg,
                               title: 'Edit video',
-                              description: 'Change resolution, adjust color, rotate, zoom, trim, and more',
-                              onTap: () => _editVideoQuickStart(context, ref),
+                              description: 'Multitrack timeline, adjust color, crop, motion, trim & more',
+                              onTap: () => _createNewProject(context, ref),
                             ),
                             _FeatureTile(
                               icon: Icons.style_rounded,
                               iconColor: AppColors.slideshowIcon,
                               bgColor: AppColors.slideshowBg,
                               title: 'Slideshow',
-                              description: 'Create a photo slideshow with transitions and background music',
+                              description: 'Create photo slideshows with 40+ transitions and free music',
                               onTap: () => _createNewProject(context, ref),
                             ),
                             _FeatureTile(
-                              icon: Icons.screen_rotation_rounded,
-                              iconColor: AppColors.rotateVideoIcon,
-                              bgColor: AppColors.rotateVideoBg,
-                              title: 'Rotate video',
-                              description: 'Rotate video, make video in portrait or landscape orientation',
-                              onTap: () => QuickToolsDialogs.showRotateDialog(context),
+                              icon: Icons.transform_rounded,
+                              iconColor: const Color(0xFFB000FF),
+                              bgColor: const Color(0xFFF6E8FF),
+                              title: 'Convert Video Format',
+                              description: 'Transcode between MP4, MKV, WebM, AVI, MOV & Animated GIF',
+                              onTap: () => QuickToolsDialogs.showPrepareDialog(context),
                             ),
                             _FeatureTile(
-                              icon: Icons.sync_rounded,
-                              iconColor: AppColors.prepareVideoIcon,
-                              bgColor: AppColors.prepareVideoBg,
-                              title: 'Prepare videos for Z-Movie Maker',
-                              description: 'Convert your video format to a format compatible with project editing',
-                              onTap: () => QuickToolsDialogs.showPrepareDialog(context),
+                              icon: Icons.record_voice_over_rounded,
+                              iconColor: const Color(0xFFFF5252),
+                              bgColor: const Color(0xFFFFEBEE),
+                              title: 'Text to Speech (TTS)',
+                              description: 'Generate synthetic voiceover narration from text scripts',
+                              onTap: () => _openTtsDialog(context, ref),
                             ),
                           ],
                         ),
@@ -277,18 +314,14 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 36),
 
-                  // Quick Tools Section
+                  // Quick Tools Section Header (Matching Image 1)
                   const Text(
                     'Quick tools (Without watermark)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF666666),
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF666666)),
                   ),
                   const SizedBox(height: 16),
 
-                  // 10 Quick Tools Grid (Screenshot 1)
+                  // 12 Quick Tools Grid (Matching Image 1)
                   GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
@@ -303,7 +336,13 @@ class HomeScreen extends ConsumerWidget {
                       final item = QuickToolItem.allTools[index];
                       return _QuickToolTile(
                         item: item,
-                        onTap: () => QuickToolsDialogs.handleQuickToolTap(context, item.type),
+                        onTap: () {
+                          if (item.type == QuickToolType.textToSpeech) {
+                            _openTtsDialog(context, ref);
+                          } else {
+                            QuickToolsDialogs.handleQuickToolTap(context, item.type);
+                          }
+                        },
                       );
                     },
                   ),
@@ -405,24 +444,9 @@ class _FeatureTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 2),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(description, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -467,14 +491,7 @@ class _QuickToolTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      item.title,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                    Text(item.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                     if (item.isNew) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -483,24 +500,13 @@ class _QuickToolTile extends StatelessWidget {
                           color: AppColors.badgeNew,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Text(
-                          'NEW',
-                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                        ),
+                        child: const Text('NEW', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  item.description,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(item.description, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
