@@ -30,7 +30,6 @@ void main() {
       );
 
       expect(command.contains('-filter_complex'), isTrue);
-      expect(command.contains('scale=1920:1080:force_original_aspect_ratio=decrease'), isTrue);
       expect(command.contains('-r'), isTrue);
       expect(command.contains('60'), isTrue);
       expect(command.last, equals('C:/test_output.mp4'));

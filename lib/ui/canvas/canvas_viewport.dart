@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/project_model.dart';
 import '../../models/clip_model.dart';
+import '../../models/overlay_layer_model.dart';
 import '../../state/project_state.dart';
 import '../../state/playback_state.dart';
 import '../drawers/add_media_menu.dart';

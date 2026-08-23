@@ -108,6 +108,7 @@ class _SaveVideoDialogState extends State<SaveVideoDialog> {
                       ],
                     );
                   }),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -171,6 +172,7 @@ class _SaveVideoDialogState extends State<SaveVideoDialog> {
                       ],
                     );
                   }),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -217,6 +219,7 @@ class _SaveVideoDialogState extends State<SaveVideoDialog> {
                       ],
                     );
                   }),
+                ),
               ),
               const SizedBox(height: 16),
 

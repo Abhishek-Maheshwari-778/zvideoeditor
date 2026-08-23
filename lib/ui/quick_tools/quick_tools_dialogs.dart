@@ -30,7 +30,7 @@ class QuickToolsDialogs {
       case QuickToolType.videoStabilization:
         showStabilizationDialog(context);
         break;
-      case QuickToolType.screenRecording:
+      case QuickToolType.recordScreen:
         showScreenRecordDialog(context);
         break;
       case QuickToolType.addBackgroundMusic:
@@ -39,8 +39,14 @@ class QuickToolsDialogs {
       case QuickToolType.effectsAdjust:
         showEffectsDialog(context);
         break;
-      case QuickToolType.addTextStickers:
-        showAddTextStickersDialog(context);
+      case QuickToolType.rotateVideo:
+        showRotateDialog(context);
+        break;
+      case QuickToolType.convertVideo:
+      case QuickToolType.playDvds:
+      case QuickToolType.textToSpeech:
+      default:
+        showPrepareDialog(context);
         break;
     }
   }
@@ -141,13 +147,13 @@ class QuickToolsDialogs {
     );
   }
 
-  /// 10. Add Text/Stickers Dialog
-  static void showAddTextStickersDialog(BuildContext context) {
+  /// 10. Convert Video Dialog
+  static void showConvertVideoDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (_) => const _GenericQuickToolDialog(
-        title: 'Add Text & Stickers',
-        toolType: QuickToolType.addTextStickers,
+        title: 'Convert Video Format',
+        toolType: QuickToolType.convertVideo,
       ),
     );
   }

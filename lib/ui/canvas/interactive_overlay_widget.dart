@@ -168,7 +168,7 @@ class _InteractiveOverlayWidgetState extends State<InteractiveOverlayWidget> {
             fontWeight: widget.overlay.isBold ? FontWeight.bold : FontWeight.normal,
             fontStyle: widget.overlay.isItalic ? FontStyle.italic : FontStyle.normal,
             shadows: widget.overlay.hasShadow
-                ? [const Shadow(color: Colors.black89, blurRadius: 8, offset: Offset(2, 2))]
+                ? [const Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(2, 2))]
                 : null,
           ),
         );

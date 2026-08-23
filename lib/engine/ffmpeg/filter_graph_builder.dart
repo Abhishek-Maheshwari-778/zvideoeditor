@@ -91,7 +91,7 @@ class FilterGraphBuilder {
       if (clip.type == ClipType.solidColor || clip.type == ClipType.gradient) {
         final List<String> vf = ['setsar=1', 'fps=$fps'];
         filterComplex.add('[$i:v]${vf.join(',')}[v$i]');
-      } else if (useBlurBackground && (project.aspectRatio == CanvasAspectRatio.vertical9_16 || project.aspectRatio == CanvasAspectRatio.square1_1)) {
+      } else if (useBlurBackground && (project.aspectRatio == CanvasAspectRatio.ratio9_16 || project.aspectRatio == CanvasAspectRatio.ratio1_1)) {
         // Smart Canvas Auto-Reframing with Ambient Blurred Background Fill (16:9 -> 9:16 / 1:1)
         final bgFilter = '[$i:v]scale=$outW:$outH:force_original_aspect_ratio=increase,crop=$outW:$outH,boxblur=25:25,fps=$fps[bg$i]';
         final fgFilter = '[$i:v]scale=$outW:$outH:force_original_aspect_ratio=decrease,fps=$fps[fg$i]';
