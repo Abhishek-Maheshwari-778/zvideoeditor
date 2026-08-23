@@ -15,12 +15,6 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK (for tooling)
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -29,15 +23,20 @@ jobs:
           cache: true
 
       - name: Enable Windows Desktop Support
-        run: flutter config --enable-windows-desktop
+        run: |
+          flutter config --enable-windows-desktop
+
+      - name: Recreate Windows Desktop Platform Files
+        run: |
+          flutter create --platforms=windows --project-name z_movie_maker .
 
       - name: Install Project Dependencies
         run: flutter pub get
 
-      - name: Run Unit & Integration Tests
+      - name: Run Unit Tests
         run: flutter test
 
-      - name: Download Prebuilt FFmpeg Static Binaries (GPL-3.0)
+      - name: Download Prebuilt FFmpeg Static Binaries (Windows x64)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "assets/bin"
@@ -47,10 +46,10 @@ jobs:
           Copy-Item -Path "ffmpeg_extracted/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "assets/bin/ffprobe.exe" -Force
           Remove-Item -Recurse -Force "ffmpeg.zip", "ffmpeg_extracted"
 
-      - name: Build Windows Desktop Release Bundle
+      - name: Build Windows Desktop Release Executable
         run: flutter build windows --release
 
-      - name: Copy FFmpeg Binaries into Windows Release Directory
+      - name: Bundle FFmpeg into Windows Release Directory
         shell: pwsh
         run: |
           $releaseDir = "build/windows/x64/runner/Release"
