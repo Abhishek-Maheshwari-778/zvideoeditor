@@ -1,80 +1,83 @@
-# Z-Movie Maker (OpenAnimotica) — Complete Feature Specification
+# Z-Movie Maker (OpenAnimotica) — Complete Feature Specification (v2.0)
 
-This document details every feature replicated from Animotica and the exact implementation specifications.
-
----
-
-## 1. Dashboard & Home Screen Features
-
-| Feature | Screenshot Ref | Description & Technical Implementation |
-| :--- | :--- | :--- |
-| **New Project** | Screenshot 1 | Creates a fresh timeline with customizable canvas aspect ratios (16:9, 9:16, 1:1, 4:5, 21:9) and default 60 FPS. |
-| **Open Project** | Screenshot 1 | Loads `.openanimotica` / `.zmovie` JSON project files and restores complete multi-clip timeline state. |
-| **Edit Video Workflow** | Screenshot 1 | Guided workflow: Pick video -> Auto-detect resolution -> Open full workspace. |
-| **Slideshow Maker** | Screenshot 1 | Multi-image importer with configurable photo display durations and auto-applied transitions. |
-| **Rotate Video** | Screenshot 1 | Quick utility to transpose/flip 90°, 180°, 270° with lossless rotation flags (`-metadata:s:v rotate=...` or `-vf transpose=...`). |
-| **Prepare Videos** | Screenshot 1 | Transcodes problematic codecs/containers into standard H.264 MP4 with constant frame rate for stutter-free editing. |
+> **Version:** 2.0.0 (Updated from Advanced Editor & Quick Tools Screenshots)  
+> **Platform:** Windows 10/11 Desktop, Cross-Platform Flutter
 
 ---
 
-## 2. The 10 Quick Tools (Stand-alone Instant Utilities)
+## 1. Complete Feature Inventory & Hunted Additions (v2.0)
 
-1. **✂️ Trim Video:**
-   - Visual dual-handle scrubber to set start and end points with millisecond accuracy.
-   - Stream copy mode (`-c copy`) for instant lossless cuts in under 1 second.
-
-2. **🔴 Screen Recording:**
-   - Full desktop / window recording using Windows GDI / directshow capture.
-   - Microphone voice capture toggle with sample rate auto-configuration.
-
-3. **🔤 Add Text, Stickers or Logo:**
-   - Overlay layer editor with drag, pinch-to-scale, and rotation on canvas.
-   - Rich typography (Google Fonts), outline stroke, shadow, background box, and opacity.
-   - GIPHY sticker and GIF search integration.
-
-4. **🔁 Reverse Video:**
-   - Instant reverse playback processing with `-vf reverse -af areverse`.
-
-5. **🎵 Add Background Music:**
-   - Audio track overlay with volume leveling, auto-ducking against original clip voice, fade-in, and fade-out.
-
-6. **🎨 Effects & Adjust:**
-   - Real-time color correction sliders: Brightness, Contrast, Saturation, Temperature, Tint, Gamma, Sharpness.
-   - 20+ preset color LUT filters (Instagram-style: Clarendon, Gingham, Moon, Lark, Vintage, Sepia).
-
-7. **🎧 Extract MP3:**
-   - Fast lossless extraction of audio stream to high-quality 320kbps MP3 or AAC.
-
-8. **⚡ Fast or Slow Video:**
-   - Speed multiplier from 0.1x (Slow-mo) to 16x (Timelapse / Hyperlapse) with pitch correction (`atempo`).
-
-9. **🔇 Mute Video:**
-   - One-click removal of audio tracks (`-an`) with zero re-encoding time.
-
-10. **🛡️ Video Stabilization:**
-    - Two-pass motion compensation using `vidstabdetect` and `vidstabtransform` to eliminate camera shake.
-
----
-
-## 3. Project Workspace & Canvas Viewport
-
-- **Dynamic Canvas Formats:**
-  - `16:9 YouTube / Landscape`
-  - `9:16 TikTok / Instagram Reels / YouTube Shorts`
-  - `1:1 Instagram Square`
-  - `4:5 Portrait Feed`
-  - `21:9 Ultra-wide Cinematic`
-- **Background Fill Modes:** Solid Black, Custom Color, Gradient, or Blurred Duplicate Video background.
-- **Transport Controls:** Play/Pause, Step Frame Backward (-1 frame), Step Frame Forward (+1 frame), Jump to Start/End, Volume Level.
-- **Editing Tools:** Split at playhead, Trim In/Out, Duplicate clip, Delete clip, Duration dialog.
-- **Custom Color & Gradient Generator:** Built-in tool to create solid color or multi-stop linear/radial gradient background cards with custom time length.
+```
++-----------------------------------------------------------------------------------+
+|                           Z-MOVIE MAKER v2.0 FEATURE SUITE                        |
++-----------------------------------+-----------------------------------------------+
+| 1. CORE WORKSPACES & HUBS         | 4. MULTITRACK TIMELINE & CONTROLS             |
+|    - Dashboard Hub                |    - Track 1: Master Video / Clip Track (🎬)  |
+|    - Advanced Multitrack Timeline |    - Track 2: Audio & Music Track (🎵)        |
+|    - Save Video / Export Modal    |    - Track 3: Overlays & PiP Track (🖼️)       |
+|    - Format Converter Hub         |    - Track 4: Text & Subtitle Track (🔤)      |
+|    - Media & DVD Player           |    - Track 5: Filter & Effects Track (🎞️)     |
+|                                   |    - Dual-Handle Trimmer Blocks ([< ... >])   |
+| 2. EXPANDED QUICK TOOLS (12 TOOLS)|    - Interactive Timeline Zoom (- / + / Fit)  |
+|    - 1. Trim Video (Lossless)     |    - Granular Second/Millisecond Ruler        |
+|    - 2. Screen Recorder (60 FPS)  |                                               |
+|    - 3. Convert Video Format      | 5. ADVANCED BOTTOM ACTION SHELF               |
+|    - 4. Reverse Video             |    - Add Media (+)                            |
+|    - 5. Stabilize Video (VidStab) |    - Split (][)                               |
+|    - 6. Extract MP3 Audio         |    - Duration (|-|)                           |
+|    - 7. Rotate Video              |    - Effect & LUT Filter (🎨)                 |
+|    - 8. Text to Speech (TTS) [NEW]|    - Crop Video Canvas (✂️) [NEW]             |
+|    - 9. Add Background Music      |    - Motion & Ken Burns Pan-Zoom (🏃) [NEW]   |
+|    - 10. Effects & Color Adjust   |    - Transform & Fit/Fill (⛶) [NEW]           |
+|    - 11. Fast or Slow Video       |    - Rotate (90°/180°/270°) (🔄)              |
+|    - 12. Mute Audio Stream        |    - Flip Horizontal / Vertical (⛵) [NEW]    |
+|                                   |    - Duplicate (📄) & Delete (🗑️)             |
+| 3. SAVE VIDEO & EXPORT ENGINE     |                                               |
+|    - 5 Resolution Tiers           | 6. OVERLAYS & AUDIO STUDIO                    |
+|      (480p, 720p, 1080p, 2K, 4K)  |    - Interactive Canvas Drag/Scale/Rotate     |
+|    - 4 Bitrate Quality Tiers      |    - Animated Google Fonts Titles             |
+|      (Draft 2M, Std 10M, Good, Max)|   - Chroma Key Green/Blue Screen Studio       |
+|    - Real-Time File Size Estimator|    - Multi-Track Audio Mixer & Auto-Ducking   |
+|    - 5 Frame Rates (24-60 fps)    |    - GIPHY Animated Stickers & Stock Search   |
++-----------------------------------+-----------------------------------------------+
+```
 
 ---
 
-## 4. Transitions Engine (40+ Presets)
+## 2. Detailed Breakdown of New v2.0 Features
 
-- **Standard:** None, Opacity (Cross Fade), Fade to Black, Fade to White, Blur.
-- **Luma Mattes:** Luma Fade A, Luma Fade B, Luma Swirl, Luma Radial, Luma Clock.
-- **Geometric:** Wipe Left, Wipe Right, Wipe Up, Wipe Down, Diagonal TL, Diagonal BR.
-- **Dynamic:** Slide Left, Slide Right, Zoom In, Zoom Out, Pixelize, Dissolve, Squeeze.
-- **Duration Control:** Configurable transition length from 0.2s to 3.0s with automatic audio cross-fading (`acrossfade`).
+### 2.1 🗣️ Text to Speech (TTS) Studio (Image 1)
+- **Engine:** Integrated Flutter TTS / Windows SAPI5 / Piper neural voice generator.
+- **Controls:** Pitch adjustment, Speech rate slider, Volume multiplier, and Language/Voice selector.
+- **Workflow:** Input text script -> Generate synthetic waveform -> Auto-inserts as a dedicated voiceover clip onto Audio Track 2.
+
+### 2.2 🔄 Universal Video Format Converter (Image 1)
+- **Supported Formats:** MP4 (H.264 / H.265 / AV1), MKV, MOV (ProRes / H.264), WebM (VP9 / AV1), AVI, Animated GIF, WMV.
+- **Presets:** Social Media (YouTube 4K, Instagram Reel 1080x1920, TikTok, WhatsApp compressed), Lossless transcode, Web-optimized faststart.
+
+### 2.3 🎚️ Advanced 5-Track Multitrack Timeline & Zoom Engine (Image 2)
+1. **Master Video Track (🎬):** Displays thumbnails filmstrip, audio waveform preview, clip duration tag, volume icon, and draggable start/end trim handles (`[<` and `>]`).
+2. **Audio Track (🎵):** Dedicated layer for background music, audio sound effects, and voice recordings.
+3. **Overlay & PiP Track (🖼️):** Holds Picture-in-Picture videos, PNG logos, and GIPHY stickers with layer order index.
+4. **Text Track (🔤):** Displays subtitle blocks, lower-thirds, animated text titles, and caption intervals.
+5. **Effects Track (🎞️):** Global color LUTs, vintage filters, vignette, and blur layers.
+6. **Timeline Zoom Controls:** Interactive slider from 1x to 10x zoom, `-` (Zoom Out), `+` (Zoom In), and `Fit to Window` button to snap all clips into full view.
+7. **Floating Quick-Add (`+`):** Positioned on the right side of the timeline for 1-click media appending.
+
+### 2.4 🛠️ New Bottom Shelf Editing Tools (Image 2)
+- ✂️ **Crop Tool:** Custom aspect ratio cropping (`16:9`, `9:16`, `1:1`, `4:3`, Freeform) with on-screen grid handles.
+- 🏃 **Motion & Ken Burns Pan/Zoom:** Dynamic camera animations (*Zoom In, Zoom Out, Pan Left to Right, Pan Right to Left, Floating Drift*).
+- ⛶ **Transform Tool:** Freeform scale, position offset (X/Y), Canvas Fit mode (*Fit inside, Fill canvas, Stretch, Center*).
+- ⛵ **Flip Tool:** One-click instant horizontal mirror flip (`-vf hflip`) and vertical inversion (`-vf vflip`).
+
+### 2.5 💾 Advanced Save Video / Export Modal (Image 3)
+- **Resolution Slider (5 Tiers):** `480P (SD)`, `720P (HD)`, `1080P (Full HD)`, `1440P (2K)`, `4K (Ultra HD)`.
+- **Quality & Bitrate Slider (4 Tiers):**
+  - `Draft (2 Mbps)` — Lightweight preview export
+  - `Standard (10 Mbps)` — Balanced web export
+  - `Good (15 Mbps)` — High fidelity YouTube/Vimeo export
+  - `Best (20 Mbps)` — Master archival render
+- **Live Output File Size Estimator:** Calculates estimated `.mp4` size in real-time as duration × target bitrate (e.g. `Output File Size: 3.75 MB`).
+- **Framerate Slider (5 Tiers):** `24 fps (Cinematic)`, `25 fps (PAL)`, `30 fps (Standard)`, `50 fps`, `60 fps (Smooth)`.
+- **Expandable More Settings:** Audio Bitrate (128k, 192k, 320k), Audio Sample Rate (44.1kHz, 48kHz), Video Codec selector (libx264, libx265, AV1).
+- **Watermark Toggle:** Orange `Remove Watermark` button and `Export Video` execution trigger.

@@ -1,79 +1,76 @@
-# Z-Movie Maker (OpenAnimotica) — System Architecture
+# Z-Movie Maker (OpenAnimotica) — System Architecture (v2.0)
 
-## 1. High-Level System Architecture
+> **Version:** 2.0.0  
+> **Target Framework:** Flutter Desktop (Windows 10/11 x64, macOS, Linux)  
+> **Engines:** Native FFmpeg 6.0+, Direct3D11 `media_kit` (MPV), Flutter TTS / SAPI5
 
-Z-Movie Maker is built on a modular desktop architecture separating the **UI & Timeline Presentation Layer**, the **Hardware-Accelerated Real-Time Preview Engine**, and the **Non-Destructive FFmpeg Rendering & Processing Core**.
+---
+
+## 1. High-Level Subsystems (v2.0)
 
 ```
-+-------------------------------------------------------------------------+
-|                         FLUTTER DESKTOP UI LAYER                        |
-|                                                                         |
-|  +-------------------+  +--------------------------------------------+  |
-|  |  Dashboard / Home |  |             Project Workspace              |  |
-|  |  - 10 Quick Tools |  |  +--------------------+ +----------------+ |  |
-|  |  - Projects List  |  |  |   Canvas Viewport  | |  Clip Toolbar  | |  |
-|  |  - Media Creators |  |  +--------------------+ +----------------+ |  |
-|  +-------------------+  |  |   Storyboard & Multi-Clip Scrub Bar   | |  |
-|                         |  +---------------------------------------+ |  |
-|                         +--------------------------------------------+  |
-+-------------------------------------------------------------------------+
-                                     |
-                                     v
-+-------------------------------------------------------------------------+
-|                  TIMELINE & STATE MANAGEMENT (Riverpod)                 |
-|                                                                         |
-|  - ProjectState (Canvas aspect ratio, resolution, global duration)       |
-|  - TrackState (Video Track, Overlay Track, Audio Tracks, Text Tracks)   |
-|  - PlaybackController (Play, Pause, Step-Frame, Loop, Playhead Time)    |
-|  - HistoryManager (Full Undo / Redo Command Pattern)                    |
-+-------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------+
+|                                FLUTTER DESKTOP UI LAYER                                 |
+|                                                                                         |
+|  +---------------------------+  +----------------------------------------------------+  |
+|  |       Dashboard Hub       |  |             Advanced Workspace Editor              |  |
+|  | - 12 Quick Tools Grid     |  |  +---------------------+  +---------------------+  |  |
+|  | - Video Format Converter  |  |  |   Canvas Viewport   |  | Overlay & FX Panel  |  |  |
+|  | - Media & DVD Player Mode |  |  +---------------------+  +---------------------+  |  |
+|  | - Text to Speech Studio   |  |  |        5-Track Timeline with Zoom Engine        |  |  |
+|  |                           |  |  | [Video] [Audio] [PiP/Overlay] [Text] [Effects]  |  |  |
+|  +---------------------------+  +----------------------------------------------------+  |
++-----------------------------------------------------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                          TIMELINE & STATE MANAGEMENT (Riverpod)                         |
+|                                                                                         |
+|  - ProjectState (Aspect ratio, 5-Track sequence, watermarks, output profile)            |
+|  - PlaybackNotifier (Transport, frame stepping, timecode formatting, timeline zoom)     |
+|  - OverlayTransformNotifier (Interactive drag, scale, rotation, layer hierarchy)       |
+|  - HistoryManager (Multi-level Undo / Redo Command Pattern)                             |
++-----------------------------------------------------------------------------------------+
             |                                           |
             v                                           v
-+-----------------------+                   +-----------------------+
-|    PREVIEW ENGINE     |                   |    EXPORT & TOOLS     |
-| (media_kit + MPV lib) |                   | (Native FFmpeg Core)  |
-|                       |                   |                       |
-| - Fast frame seek     |                   | - 40+ XFade Matrix    |
-| - Low latency scrub   |                   | - Deshake / VidStab   |
-| - Direct3D/D3D11 HWND |                   | - Chroma Keying       |
-| - Real-time sync      |                   | - 10 Quick Tools      |
-+-----------------------+                   +-----------------------+
++-----------------------+                   +---------------------------------------------+
+|    PREVIEW ENGINE     |                   |               CORE PROCESSING               |
+| (media_kit + MPV lib) |                   |             (Native FFmpeg Core)            |
+|                       |                   |                                             |
+| - D3D11 Texture HWND  |                   | - 40+ XFade Matrix & Luma Transitions       |
+| - Low latency scrub   |                   | - Deshake / 2-Pass VidStab Motion Detection |
+| - Real-time audio sync|                   | - Chroma Keying & Shape Masked PiP          |
+| - Frame-accurate seek |                   | - Crop, Flip (H/V), & Ken Burns Pan-Zoom    |
+| - Dynamic canvas zoom |                   | - 5-Tier Resolution & 4-Tier Bitrate Engine |
++-----------------------+                   +---------------------------------------------+
             |                                           |
             v                                           v
-+-------------------------------------------------------------------------+
-|                    EXTERNAL APIS & ASSET REPOSITORIES                   |
-|                                                                         |
-|  - GIPHY Search & Sticker API (Animated transparent overlays)          |
-|  - Pexels & Pixabay Media API (Free 4K stock video & audio)             |
-|  - Local Hardware Devices (Webcam, USB Microphones, Screen Display)     |
-+-------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------+
+|                           EXTERNAL SERVICES & HARDWARE PLUGINS                          |
+|                                                                                         |
+|  - Text-to-Speech (TTS) Voice Synthesizer (Windows SAPI5 / Piper neural engine)         |
+|  - GIPHY Animated Sticker & GIF Repository                                              |
+|  - Free Stock Media Search (Pexels / Pixabay 4K Assets)                                 |
+|  - Screen & Audio Capture (GDI Desktop Grab + Microphone DirectShow)                    |
++-----------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 2. Core Subsystems
+## 2. Multitrack Timeline Layer Hierarchy
 
-### 2.1 State Management (`lib/state/`)
-- **`project_provider.dart`**: Holds the active `ProjectModel`, handling track additions, clip splitting, trimming, and duration calculations.
-- **`playback_provider.dart`**: Synchronizes the UI playhead with the `media_kit` hardware player.
-- **`history_provider.dart`**: Implements undo/redo actions for clip cuts, transitions, volume edits, and text transformations.
-
-### 2.2 Preview Engine (`lib/engine/preview/`)
-- Uses `media_kit` with native Direct3D11 texture rendering on Windows for zero-copy high frame-rate preview.
-- Dynamic aspect ratio canvas wrapping (`16:9`, `9:16`, `1:1`, `4:5`, `21:9`) with customizable solid, gradient, or blurred background padding.
-
-### 2.3 FFmpeg Pipeline Engine (`lib/engine/ffmpeg/`)
-- **Command Generator**: Translates the active `ProjectModel` timeline into a deterministic multi-input `filter_complex` script.
-- **Process Manager**: Spawns isolated native `ffmpeg.exe` and `ffprobe.exe` processes with real-time `stderr` parsing for accurate percentage progress and ETA calculations.
-- **Quick Tool Runners**: Dedicated standalone single-task processors for instant, non-destructive exports.
-
-### 2.4 Project Storage & Serialization (`lib/services/storage/`)
-- Open JSON format `.openanimotica` / `.zmovie`.
-- Portable project packaging with relative media references.
+```
+Ruler:  [00:00:00.0] -------- [00:00:03.0] -------- [00:00:06.0] -------- [00:00:09.0]
+Track 1 (Video):   [ [<  Clip 1 (Filmstrip + Waveform)  >] ]-[+]--[ [<  Clip 2  >] ]
+Track 2 (Audio):   [       🎵 Background Music 01        ] [ 🗣️ TTS Voiceover Clip ]
+Track 3 (Overlay): [ 🖼️ PiP Video (Circle Mask) ]          [  ⭐ GIPHY Sticker     ]
+Track 4 (Text):    [   🔤 Animated Lower-Third Title    ]  [   🔤 Subtitle Block   ]
+Track 5 (Effects): [ 🎞️ Cinematic Orange & Teal LUT      ]  [  🎞️ Vignette Filter  ]
+```
 
 ---
 
-## 3. Directory Layout
+## 3. Directory Layout (v2.0)
 
 ```
 z_movie_maker/
@@ -83,24 +80,22 @@ z_movie_maker/
 ├── assets/
 │   ├── audio/                         # Royalty-free music and SFX
 │   ├── icons/                         # App and tool icons
-│   ├── luma/                          # Grayscale Luma matte transition maps
 │   └── bin/                           # Bundled FFmpeg & FFprobe binaries (Windows)
 ├── lib/
-│   ├── main.dart                      # Application entry point
-│   ├── core/                          # Constants, theme colors, theme helpers
+│   ├── main.dart                      # Application entry point & window manager
+│   ├── core/                          # Constants, colors, themes
 │   ├── models/                        # Project, Track, Clip, Transition, Layer models
 │   ├── state/                         # Riverpod state providers
 │   ├── engine/
 │   │   ├── ffmpeg/                    # Filter complex builders & CLI execution
 │   │   └── preview/                   # Player controllers and frame synchronization
-│   ├── services/                      # GIPHY, Stock Media, Screen capture, Audio recording
+│   ├── services/                      # GIPHY, TTS, Stock Media, Screen capture
 │   ├── ui/
-│   │   ├── home/                      # Dashboard, Recent Projects, Quick Tools Grid
+│   │   ├── home/                      # Dashboard, Quick Tools Grid, Format Converter
 │   │   ├── workspace/                 # Main editor workspace
-│   │   ├── canvas/                    # Preview canvas with overlays
-│   │   ├── timeline/                  # Storyboard, scrub bar, transition connectors
-│   │   ├── drawers/                   # Transition picker, Color picker, Effects panel
-│   │   ├── quick_tools/               # Dedicated UI dialogs for the 10 quick utilities
-│   │   └── widgets/                   # Reusable buttons, sliders, modals, window controls
-└── windows/                           # Windows C++ Desktop host configuration
+│   │   ├── canvas/                    # Preview canvas with interactive overlay widgets
+│   │   ├── timeline/                  # 5-Track Multitrack timeline with Zoom slider
+│   │   ├── drawers/                   # Transition picker, Color picker, Audio mixer, TTS
+│   │   ├── quick_tools/               # Dedicated interactive dialogs for the 12 quick tools
+│   │   └── export/                    # Advanced 5-Tier Resolution & Bitrate Modal
 ```

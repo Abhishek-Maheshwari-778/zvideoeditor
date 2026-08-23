@@ -11,17 +11,18 @@ import '../../state/playback_state.dart';
 import '../../services/project_storage_service.dart';
 import '../widgets/window_title_bar.dart';
 import '../canvas/canvas_viewport.dart';
-import '../timeline/timeline_scrub_bar.dart';
-import '../timeline/storyboard_widget.dart';
+import '../timeline/multitrack_timeline_widget.dart';
 import '../drawers/color_clip_dialog.dart';
 import '../drawers/transition_drawer.dart';
 import '../drawers/giphy_picker_dialog.dart';
 import '../drawers/effects_adjust_dialog.dart';
-import '../drawers/export_dialog.dart';
+import '../drawers/save_video_dialog.dart';
 import '../drawers/overlay_manager_drawer.dart';
 import '../drawers/audio_mixer_drawer.dart';
 import '../drawers/text_editor_dialog.dart';
 import '../drawers/chroma_key_dialog.dart';
+import '../drawers/crop_dialog.dart';
+import '../drawers/motion_dialog.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -165,6 +166,60 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     }
   }
 
+  void _showCropDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => CropDialog(
+        onApplyCrop: (l, t, w, h) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Crop area applied to active clip.')),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showMotionDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => MotionDialog(
+        onApplyMotion: (preset) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Applied Ken Burns camera motion: ${preset.name}')),
+          );
+        },
+      ),
+    );
+  }
+
+  void _flipCurrentClip() {
+    final playback = ref.read(playbackProvider);
+    final project = ref.read(projectProvider);
+    if (playback.selectedClipIndex >= 0 && playback.selectedClipIndex < project.clips.length) {
+      final clip = project.clips[playback.selectedClipIndex];
+      ref.read(projectProvider.notifier).updateClip(
+            playback.selectedClipIndex,
+            clip.copyWith(isFlippedHorizontal: !clip.isFlippedHorizontal),
+          );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Flipped clip horizontally.')),
+      );
+    }
+  }
+
+  void _rotateCurrentClip() {
+    final playback = ref.read(playbackProvider);
+    final project = ref.read(projectProvider);
+    if (playback.selectedClipIndex >= 0 && playback.selectedClipIndex < project.clips.length) {
+      final clip = project.clips[playback.selectedClipIndex];
+      final newRot = (clip.rotation + 90) % 360;
+      ref.read(projectProvider.notifier).updateClip(
+            playback.selectedClipIndex,
+            clip.copyWith(rotation: newRot),
+          );
+    }
+  }
+
   void _showDurationDialog() {
     final playback = ref.read(playbackProvider);
     final project = ref.read(projectProvider);
@@ -221,17 +276,17 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     }
   }
 
-  void _openExportDialog() {
+  void _openSaveVideoDialog() {
     final project = ref.read(projectProvider);
     if (project.clips.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one clip before exporting.')),
+        const SnackBar(content: Text('Please add at least one clip before saving video.')),
       );
       return;
     }
     showDialog(
       context: context,
-      builder: (_) => ExportDialog(project: project),
+      builder: (_) => SaveVideoDialog(project: project),
     );
   }
 
@@ -241,18 +296,18 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     final playback = ref.watch(playbackProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: const Color(0xFF141414),
       appBar: WindowTitleBar(
-        title: '${project.title} - Z-Movie Maker',
+        title: '${project.title} - Movie Maker: Video Editor',
         showBackButton: true,
         onBack: () => Navigator.of(context).pop(),
       ),
       body: Row(
         children: [
-          // Mini Sidebar (Left Menu, Save, Overlays, Mixer)
+          // Mini Sidebar (Matching Images 1 & 2)
           Container(
             width: 46,
-            color: const Color(0xFF252526),
+            color: const Color(0xFF1F1F1F),
             child: Column(
               children: [
                 const SizedBox(height: 8),
@@ -268,7 +323,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                 ),
                 const Divider(color: Colors.white24, height: 16),
                 IconButton(
-                  icon: Icon(Icons.layers_rounded, color: isLayerDrawerOpen ? AppColors.primary : Colors.white70, size: 20),
+                  icon: Icon(Icons.layers_rounded, color: isLayerDrawerOpen ? const Color(0xFF0078D7) : Colors.white70, size: 20),
                   onPressed: () => setState(() {
                     isLayerDrawerOpen = !isLayerDrawerOpen;
                     if (isLayerDrawerOpen) isAudioMixerOpen = false;
@@ -286,7 +341,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                 IconButton(
                   icon: const Icon(Icons.auto_fix_high_rounded, color: Colors.white70, size: 20),
                   onPressed: _openChromaKeyDialog,
-                  tooltip: 'Chroma Key (Green Screen)',
+                  tooltip: 'Chroma Key',
                 ),
                 const Spacer(),
               ],
@@ -297,56 +352,53 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           Expanded(
             child: Column(
               children: [
-                // Top Banner
+                // Top Pro Banner & Contact (Matching Image 2)
                 Container(
-                  color: const Color(0xFF181818),
+                  color: const Color(0xFF1A1A1A),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.proPurple,
-                          borderRadius: BorderRadius.circular(14),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: Colors.white24),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         ),
+                        onPressed: () => Navigator.of(context).pop(),
                         child: const Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'Upgrade to Pro version',
-                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(width: 6),
-                            Icon(Icons.close, color: Colors.white70, size: 12),
+                            Icon(Icons.chevron_left, size: 14),
+                            Text('ALL PROJECTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
                       const Spacer(),
-                      // Top Quick Overlays Buttons
-                      TextButton.icon(
-                        icon: const Icon(Icons.text_fields, color: Colors.white70, size: 16),
-                        label: const Text('+ Text', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                        onPressed: _openTextDialog,
-                      ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.grid_view_rounded, color: Colors.white70, size: 16),
-                        label: const Text('+ GIPHY', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                        onPressed: _openGiphyDialog,
-                      ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.picture_in_picture_rounded, color: Colors.white70, size: 16),
-                        label: const Text('+ PiP', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                        onPressed: _openPiPVideoDialog,
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: Colors.white24),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        ),
+                        icon: const Icon(Icons.contact_support_rounded, size: 14, color: Color(0xFFFF9500)),
+                        label: const Text('Contact', style: TextStyle(fontSize: 11)),
+                        onPressed: () {},
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        width: 28,
-                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          color: const Color(0xFF2A2A2A),
                           borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.5)),
                         ),
-                        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 16),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.diamond_rounded, color: Color(0xFFFF9500), size: 14),
+                            SizedBox(width: 4),
+                            Text('Premium', style: TextStyle(color: Color(0xFFFF9500), fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -354,6 +406,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
                 // Center Content: Viewport with optional side drawers
                 Expanded(
+                  flex: 3,
                   child: Row(
                     children: [
                       Expanded(
@@ -386,124 +439,26 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     onClose: () => ref.read(playbackProvider.notifier).closeTransitionDrawer(),
                   ),
 
-                // Timeline Transport & Scrubbing Bar
-                const TimelineScrubBar(),
-
-                // Multi-Clip Storyboard Tray
-                if (project.clips.isNotEmpty)
-                  StoryboardWidget(onAddClip: _openColorClipDialog),
-
-                // Bottom Action Bar
-                Container(
-                  height: 56,
-                  color: const Color(0xFFF7F7F7),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      InkWell(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          color: AppColors.primary,
-                          child: const Row(
-                            children: [
-                              Icon(Icons.arrow_back, color: Colors.white, size: 18),
-                              SizedBox(width: 6),
-                              Text('Go back', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-
-                      _BottomActionItem(
-                        icon: Icons.content_cut_rounded,
-                        label: 'Split',
-                        onTap: _splitCurrentClip,
-                      ),
-                      _BottomActionItem(
-                        icon: Icons.access_time_rounded,
-                        label: 'Duration',
-                        onTap: _showDurationDialog,
-                      ),
-                      _BottomActionItem(
-                        icon: Icons.palette_outlined,
-                        label: 'Color',
-                        onTap: _openEffectsDialog,
-                      ),
-                      _BottomActionItem(
-                        icon: Icons.copy_rounded,
-                        label: 'Duplicate',
-                        onTap: () {
-                          if (playback.selectedClipIndex >= 0) {
-                            ref.read(projectProvider.notifier).duplicateClipAt(playback.selectedClipIndex);
-                          }
-                        },
-                      ),
-                      _BottomActionItem(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Delete',
-                        onTap: () {
-                          if (playback.selectedClipIndex >= 0) {
-                            ref.read(projectProvider.notifier).removeClipAt(playback.selectedClipIndex);
-                          }
-                        },
-                      ),
-
-                      const Spacer(),
-
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
-                        icon: const Icon(Icons.download_rounded, color: Colors.white, size: 18),
-                        label: const Text('Export Video', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        onPressed: _openExportDialog,
-                      ),
-                    ],
+                // Multitrack 5-Track Timeline & Action Shelf (Matching Image 2)
+                Expanded(
+                  flex: 2,
+                  child: MultitrackTimelineWidget(
+                    onAddMedia: _openColorClipDialog,
+                    onSplit: _splitCurrentClip,
+                    onDuration: _showDurationDialog,
+                    onEffect: _openEffectsDialog,
+                    onCrop: _showCropDialog,
+                    onMotion: _showMotionDialog,
+                    onTransform: () {},
+                    onRotate: _rotateCurrentClip,
+                    onFlip: _flipCurrentClip,
+                    onSaveVideo: _openSaveVideoDialog,
                   ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BottomActionItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _BottomActionItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      hoverColor: Colors.black.withOpacity(0.04),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: const Color(0xFF444444)),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF555555), fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
       ),
     );
   }

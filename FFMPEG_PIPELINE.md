@@ -1,97 +1,80 @@
-# Z-Movie Maker (OpenAnimotica) — FFmpeg Command & Filter Graph Pipeline
+# Z-Movie Maker (OpenAnimotica) — FFmpeg Pipeline Matrix (v2.0)
 
-This document contains the exact FFmpeg command generation formulas used across all editing, filtering, transition, and export pipelines.
+> **Version:** 2.0.0  
+> **Supported Operations:** Multi-Track Compositing, 40+ Transitions, Crop, Pan-Zoom Motion, Flip, TTS Audio, Format Conversion, Dynamic Bitrates.
 
 ---
 
-## 1. Complex Filter Graph for Multi-Clip Sequencing with Transitions
+## 1. Complex Filter Graph for Multitrack Compositing (v2.0)
 
-When exporting a timeline containing $N$ clips with transitions:
+```
+[0:v] -> Scale & Pad -> Crop/Flip -> Motion Zoom -> Color EQ -> [v0]
+[1:v] -> Scale & Pad -> Crop/Flip -> Motion Zoom -> Color EQ -> [v1]
+[v0][v1] xfade (Transitions: Crossfade, Wipe, Slide, Blur, Luma) -> [v_main]
 
-```bash
-ffmpeg -y \
-  -i clip_0.mp4 \
-  -i clip_1.mp4 \
-  -i clip_2.mp4 \
-  -filter_complex " \
-    [0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=60[v0]; \
-    [1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=60[v1]; \
-    [2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=60[v2]; \
-    [v0][v1]xfade=transition=fadeblack:duration=1:offset=3.0[vx1]; \
-    [vx1][v2]xfade=transition=slideleft:duration=1:offset=7.0[vout]; \
-    [0:a][1:a]acrossfade=d=1[ax1]; \
-    [ax1][2:a]acrossfade=d=1[aout] \
-  " \
-  -map "[vout]" -map "[aout]" \
-  -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p \
-  -c:a aac -b:a 192k \
-  output_project.mp4
+[v_main] + [PiP 1 (ChromaKey)] + [PiP 2 (Shape Mask)] -> overlay -> [v_pip]
+[v_pip]  + [Text Subtitles (Animated DrawText)]        -> overlay -> [v_text]
+[v_text] + [Watermark (Top/Bottom Right)]             -> overlay -> [v_final]
+
+[Audio Main] + [Audio Music] + [Audio TTS Voice] + [Sound FX] -> amix -> [a_final]
 ```
 
 ---
 
-## 2. Chroma Key & Layer Overlays (Stickers / Text / PiP)
+## 2. New v2.0 Filter Formulas
 
+### 2.1 ✂️ Video Canvas Cropping
 ```bash
-ffmpeg -y \
-  -i main_background.mp4 \
-  -i overlay_video.mp4 \
-  -i sticker.png \
-  -filter_complex " \
-    [1:v]colorkey=0x00FF00:0.3:0.1,scale=640:360[ck]; \
-    [0:v][ck]overlay=x=50:y=50:enable='between(t,1.0,5.0)'[tmp1]; \
-    [tmp1][2:v]overlay=x='(main_w-overlay_w)/2':y='(main_h-overlay_h)/2':enable='between(t,2.0,6.0)'[vout] \
-  " \
-  -map "[vout]" -map 0:a \
-  -c:v libx264 -crf 19 output_layered.mp4
+# Crop video to custom rectangle (width, height, X offset, Y offset)
+ffmpeg -y -i input.mp4 -vf "crop=w=1280:h=720:x=320:y=180" -c:a copy output_cropped.mp4
+```
+
+### 2.2 🏃 Motion & Ken Burns Pan-Zoom
+```bash
+# Slow smooth zoom-in towards center (25 fps, 5 seconds)
+ffmpeg -y -i input.mp4 -vf \
+"zoompan=z='min(zoom+0.0015,1.3)':d=150:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080" \
+-c:v libx264 -crf 19 output_motion.mp4
+
+# Pan Left to Right
+ffmpeg -y -i input.mp4 -vf \
+"zoompan=z=1.2:x='if(lte(on,1),(iw-iw/zoom)/2,x+2)':y='ih/2-(ih/zoom/2)':d=150:s=1920x1080" \
+-c:v libx264 -crf 19 output_pan.mp4
+```
+
+### 2.3 ⛵ Horizontal & Vertical Mirror Flip
+```bash
+# Horizontal Flip
+ffmpeg -y -i input.mp4 -vf "hflip" -c:a copy output_hflip.mp4
+
+# Vertical Inversion Flip
+ffmpeg -y -i input.mp4 -vf "vflip" -c:a copy output_vflip.mp4
+```
+
+### 2.4 🔄 Universal Format Converter
+```bash
+# Convert to WebM (VP9 + Opus)
+ffmpeg -y -i input.mp4 -c:v libvpx-vp9 -b:v 2M -c:a libopus output.webm
+
+# Convert to Animated High-Quality GIF (with palettegen)
+ffmpeg -y -i input.mp4 -vf "fps=15,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" output.gif
+
+# Convert to MKV / AVI / MOV
+ffmpeg -y -i input.mp4 -c:v libx264 -preset fast -crf 20 -c:a aac output.mkv
 ```
 
 ---
 
-## 3. Quick Tools Command Matrix
+## 3. Dynamic Resolution & Bitrate Export Profiles (Image 3)
 
-### 3.1 Lossless Trim (No Re-encoding)
-```bash
-ffmpeg -y -ss {START_SEC} -to {END_SEC} -i input.mp4 -c copy output_trimmed.mp4
-```
+| Profile Preset | Resolution (W x H) | Bitrate Flag | Target Bitrate | Frame Rates |
+| :--- | :--- | :--- | :--- | :--- |
+| **480P (SD)** | `854 x 480` | `-b:v 2M -maxrate 2.5M` | Draft (2 Mbps) | 24, 25, 30, 50, 60 fps |
+| **720P (HD)** | `1280 x 720` | `-b:v 5M -maxrate 6M` | Standard (10 Mbps) | 24, 25, 30, 50, 60 fps |
+| **1080P (FHD)**| `1920 x 1080` | `-b:v 10M -maxrate 12M`| Good (15 Mbps) | 24, 25, 30, 50, 60 fps |
+| **1440P (2K)** | `2560 x 1440` | `-b:v 15M -maxrate 18M`| Best (20 Mbps) | 24, 25, 30, 50, 60 fps |
+| **4K (UHD)**   | `3840 x 2160` | `-b:v 25M -maxrate 30M`| Master (30 Mbps)| 24, 25, 30, 50, 60 fps |
 
-### 3.2 Extract MP3
-```bash
-ffmpeg -y -i input.mp4 -vn -c:a libmp3lame -q:a 2 output_audio.mp3
-```
-
-### 3.3 Speed Ramping (Slow-Motion / Fast-Motion)
-```bash
-# Example: 2x Fast Speed
-ffmpeg -y -i input.mp4 -filter_complex "[0:v]setpts=0.5*PTS[v];[0:a]atempo=2.0[a]" -map "[v]" -map "[a]" -c:v libx264 -crf 19 output_fast.mp4
-
-# Example: 0.5x Slow Motion
-ffmpeg -y -i input.mp4 -filter_complex "[0:v]setpts=2.0*PTS[v];[0:a]atempo=0.5[a]" -map "[v]" -map "[a]" -c:v libx264 -crf 19 output_slow.mp4
-```
-
-### 3.4 Reverse Video & Audio
-```bash
-ffmpeg -y -i input.mp4 -vf reverse -af areverse -c:v libx264 -crf 19 output_reversed.mp4
-```
-
-### 3.5 Video Stabilization
-```bash
-# Step 1: Detect shaky camera movements
-ffmpeg -y -i input.mp4 -vf vidstabdetect=stepsize=6:shakiness=8:accuracy=15:result=transforms.trf -f null -
-
-# Step 2: Apply 2D translation/rotation compensation
-ffmpeg -y -i input.mp4 -vf vidstabtransform=input=transforms.trf:zoom=2:smoothing=12:interpol=bicubic -c:v libx264 -crf 18 output_stabilized.mp4
-```
-
-### 3.6 Screen & Audio Recording (Direct Windows DirectShow / GDI)
-```bash
-ffmpeg -y -f gdigrab -framerate 60 -i desktop -c:v libx264 -preset ultrafast -crf 22 screen_capture.mp4
-```
-
-### 3.7 Add Background Music with Audio Ducking
-```bash
-ffmpeg -y -i video.mp4 -i music.mp3 -filter_complex " \
-  [1:a]volume=0.3[bg]; \
-  [0:a][bg]amix=inputs=2:duration=first:dropout_transition=2[aout] \
-" -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 192k output_music.mp4
-```
+### Formula for Dynamic Estimated File Size:
+$$\text{Estimated File Size (MB)} = \frac{\text{Duration (seconds)} \times (\text{Video Bitrate (Mbps)} + \text{Audio Bitrate (0.192 Mbps)})}{8}$$
+*Example:* $3.0\text{ seconds} \times 10\text{ Mbps} / 8 = 3.75\text{ MB}$ *(Exact match with Screenshot 3)*.

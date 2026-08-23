@@ -1,40 +1,54 @@
-# 🎬 Z-Movie Maker (OpenAnimotica Project)
+# 🎬 Z-Movie Maker (OpenAnimotica Project) v2.0
 
-[![Build & Release Windows Desktop App](https://github.com/your-username/z-movie-maker/actions/workflows/build_windows.yml/badge.svg)](https://github.com/your-username/z-movie-maker/actions)
+[![Build & Release Windows Desktop App](https://github.com/Abhishek-Maheshwari-778/zvideoeditor/actions/workflows/build_windows.yml/badge.svg)](https://github.com/Abhishek-Maheshwari-778/zvideoeditor/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Flutter](https://img.shields.io/badge/Flutter-3.19+-02569B?logo=flutter)](https://flutter.dev)
 
-An open-source, feature-complete, modern video editor and movie maker built with **Flutter Desktop**, **MediaKit (MPV engine)**, and **Native FFmpeg**, directly replicating the UI, workflows, and tools of Animotica.
+An open-source, feature-complete, modern video editor and movie maker built with **Flutter Desktop**, **MediaKit (MPV engine)**, and **Native FFmpeg**, directly replicating the UI, workflows, and tools of Animotica (Version 2.0).
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Features (v2.0)
 
-### 1. 🏠 Home Dashboard & Workflow Hub
-- **Direct Project Creation:** `+ New project` and `📁 Open a project`.
-- **4 Guided Workflow Cards:**
-  - `Edit video`: Change resolution, adjust color, rotate, zoom, trim, and more.
-  - `Slideshow`: Create photo slideshows with transitions and background music.
-  - `Rotate video`: Lossless orientation changer (90°, 180°, 270°).
-  - `Prepare videos for Z-Movie Maker`: Automatic transcode to standard H.264 MP4.
+### 1. 🏠 Home Dashboard & 12 Standalone Quick Tools
+- **Core Guided Workflows:** `Edit video`, `Slideshow Maker`, `Rotate video`, `Convert Video Format`, `Play DVDs`, `Prepare videos for Z-Movie Maker`.
+- **12 Standalone Quick Tools (No Watermark):**
+  1. ✂️ **Trim Video:** Dual-handle lossless stream-copy trimmer.
+  2. 🔴 **Record Screen:** 60 FPS desktop screen capture with microphone.
+  3. 🔄 **Convert Video:** Transcode between MP4, MKV, WebM, AVI, MOV, and animated GIF.
+  4. 🔁 **Reverse Video:** Plays footage backwards with audio reversal.
+  5. 🛡️ **Stabilize Video:** 2-Pass `vid.stab` motion compensation to eliminate camera shake.
+  6. 🎧 **Extract MP3:** Fast audio stream extraction to 320kbps MP3.
+  7. 🔄 **Rotate Video:** Lossless 90°, 180°, 270° orientation changer.
+  8. 🗣️ **Text to Speech (TTS):** Synthetic voice generator with pitch and rate controls.
+  9. 🎵 **Add Background Music:** Background audio mixing with auto-ducking.
+  10. 🎨 **Effects & Adjust:** Color correction sliders (Brightness, Contrast, Saturation, Temp, Hue).
+  11. ⚡ **Fast or Slow Video:** Speed multiplier from 0.1x to 16x with pitch correction.
+  12. 🔇 **Mute Video:** Instant one-click audio stream removal.
 
-### 2. ⚡ The 10 Standalone Quick Tools (No Watermark)
-1. ✂️ **Trim video:** Dual-handle lossless trimmer.
-2. 🔴 **Screen recording:** Full desktop screen capture with audio.
-3. 🔤 **Add text, stickers or logo:** Free GIPHY stickers & animated text overlays.
-4. 🔁 **Reverse video:** Plays footage backwards with audio reversal.
-5. 🎵 **Add background music:** Background audio mixing with auto-ducking.
-6. 🎨 **Effects & Adjust:** Color correction (Brightness, Contrast, Saturation, Temp, Hue).
-7. 🎧 **Extract MP3:** Fast audio stream extraction to 320kbps MP3.
-8. ⚡ **Fast or slow video:** Speed multiplier from 0.1x to 16x with pitch correction.
-9. 🔇 **Mute video:** Instant one-click audio removal.
-10. 🛡️ **Video stabilization:** 2-Pass `vid.stab` motion compensation to eliminate camera shake.
+### 2. 🎞️ Advanced 5-Track Multitrack Timeline & Zoom Engine
+- **Track 1 (Master Video):** Filmstrip thumbnails, audio waveform preview, clip duration tag, volume control, and dual-handle trim brackets (`[<` and `>]`).
+- **Track 2 (Audio & Music):** Dedicated background music, sound effects, and voiceover layer.
+- **Track 3 (Overlays & PiP):** Picture-in-Picture videos, shape masks (Circle, Rounded), and GIPHY stickers.
+- **Track 4 (Text & Subtitles):** Animated text titles, lower-thirds, and caption intervals.
+- **Track 5 (Effects & Filters):** Global color LUTs, vignette, and blur layers.
+- **Timeline Zoom Engine:** Interactive zoom slider (`-` / `+`) and `Fit to Window` button.
+- **Floating Quick Add (`+`):** Append new media with one click directly on the timeline.
 
-### 3. 🎞️ Canvas Viewport & Storyboard Timeline
-- **Aspect Ratios:** `16:9` (YouTube), `9:16` (TikTok / Reels / Shorts), `1:1` (Square), `4:5` (Portrait), `21:9` (Cinematic).
-- **Transport Controls:** Play/Pause, Frame-by-frame step backward/forward, Jump to Start/End, Volume, Undo/Redo.
-- **Storyboard Tray:** Sequenced clip thumbnails, duration tags, delete badges, and `+` transition nodes.
-- **40+ Transitions:** Cross Fade, Fade Black, Fade White, Blur, Luma Fades, Glow, Lens Flare, Wipes, Slides, and Zooms.
+### 3. 🛠️ Complete Bottom Editing Action Shelf
+- `+ Add` Media | `][ Split` at playhead | `|-| Duration` dialog | `🎨 Effect` (Color LUTs & filters)
+- `✂ Crop` (Custom aspect ratio & bounding box)
+- `🏃 Motion` (Ken Burns Pan-Zoom animations)
+- `⛶ Transform` (Scale, position, fit/fill canvas)
+- `🔄 Rotate` (90° steps) | `⛵ Flip` (Horizontal & Vertical mirror flip)
+- `📄 Duplicate` clip | `🗑 Delete` clip | `💾 Save Video` (Export Studio)
+
+### 4. 💾 Advanced Save Video & Export Studio
+- **5 Resolution Tiers:** `480P (SD)`, `720P (HD)`, `1080P (Full HD)`, `1440P (2K)`, `4K (Ultra HD)`.
+- **4 Quality Bitrate Tiers:** `Draft (2 Mbps)`, `Standard (10 Mbps)`, `Good (15 Mbps)`, `Best (20 Mbps)`.
+- **Live Output File Size Estimator:** Real-time size display (e.g. `Output File Size: 3.75 MB`).
+- **5 Framerate Options:** `24 fps`, `25 fps`, `30 fps`, `50 fps`, `60 fps`.
+- **More Settings:** Codec (libx264, libx265, AV1), Audio sample rate, and channels.
 
 ---
 
@@ -49,8 +63,8 @@ An open-source, feature-complete, modern video editor and movie maker built with
 ### Run on Windows
 ```bash
 # 1. Clone repository
-git clone https://github.com/your-username/z-movie-maker.git
-cd z-movie-maker
+git clone https://github.com/Abhishek-Maheshwari-778/zvideoeditor.git
+cd zvideoeditor
 
 # 2. Get Flutter packages
 flutter pub get
@@ -67,13 +81,4 @@ flutter test
 ---
 
 ## 📦 Automated GitHub Actions CI/CD
-Every tag push (e.g. `v1.0.0`) triggers `.github/workflows/build_windows.yml` to:
-1. Download static FFmpeg binaries.
-2. Build the Flutter Windows Release (`flutter build windows --release`).
-3. Package the standalone `Z-Movie-Maker-Windows-Portable.zip`.
-4. Automatically attach release assets to GitHub Releases.
-
----
-
-## 📄 Project File Format
-Z-Movie Maker uses open `.openanimotica` / `.zmovie` JSON schemas, ensuring complete portable preservation of tracks, clips, aspect ratios, overlays, and transitions.
+Every tag push (e.g. `v2.0.0`) triggers `.github/workflows/build_windows.yml` to build and publish Windows release binaries automatically.
