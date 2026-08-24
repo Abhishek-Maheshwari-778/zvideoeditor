@@ -28,11 +28,6 @@ dependencies:
   desktop_drop: ^0.4.4
 
   # Camera & Recording
-  camera: ^0.10.5+9
-  camera_windows: ^0.2.1+8
-  record: ^5.1.2
-  audioplayers: ^6.0.0
-
   # Networking & Media
   http: ^1.2.1
   cached_network_image: ^3.3.1
