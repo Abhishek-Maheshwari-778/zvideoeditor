@@ -47,9 +47,18 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  msix: ^3.18.0
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icons/
     - assets/audio/
+
+msix_config:
+  display_name: Z-Movie Maker
+  publisher_display_name: OpenAnimotica
+  identity_name: ZMovieMaker
+  msix_version: 1.0.0.0
+  logo_path: assets/icons/app_icon.png
+  store: true
