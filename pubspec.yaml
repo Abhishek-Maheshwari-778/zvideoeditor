@@ -54,6 +54,7 @@ msix_config:
   display_name: Z-Movie Maker
   publisher_display_name: OpenAnimotica
   identity_name: ZMovieMaker
+  publisher: "CN=Placeholder"
   msix_version: 1.0.0.0
   logo_path: assets/icons/app_icon.png
   store: true
