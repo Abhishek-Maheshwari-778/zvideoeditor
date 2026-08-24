@@ -63,12 +63,22 @@ jobs:
       - name: Build MSIX Package for Microsoft Store
         run: dart run msix:create
         
-      - name: Get Version for Artifact
-        id: get_version
+      - name: Package Portable ZIP Archive for Local Testing
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF -match 'refs/tags/(v[^/]+)') { $matches[1] } else { 'dev' }
+          $zipName = "Z-Movie-Maker-$version-Windows-x64-Portable.zip"
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "build/$zipName" -Force
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
           echo "VERSION=$version" >> $env:GITHUB_ENV
+          Write-Host "Packaged: $zipName"
+
+      - name: Upload Build Artifact (Portable Zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Z-Movie-Maker-${{ env.VERSION }}-Windows-Portable
+          path: build/${{ env.ZIP_NAME }}
+          retention-days: 30
 
       - name: Upload Build Artifact (MSIX Package)
         uses: actions/upload-artifact@v4
